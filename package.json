@@ -1,0 +1,33 @@
+{
+  "name": "gadomarket-pro",
+  "version": "2.0.0",
+  "private": true,
+  "description": "GadoMarket Pro - Gestão de Compra e Venda de Gado",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.18.3",
+    "jsonwebtoken": "^9.0.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "build": "react-scripts build",
+    "dev": "concurrently -k -n \"API,WEB\" -c \"yellow,cyan\" \"node server.js\" \"react-scripts start\"",
+    "client": "react-scripts start",
+    "server": "node server.js"
+  },
+  "proxy": "http://localhost:3001",
+  "browserslist": {
+    "production": [">0.2%", "not dead", "not op_mini all"],
+    "development": ["last 1 chrome version"]
+  }
+}
