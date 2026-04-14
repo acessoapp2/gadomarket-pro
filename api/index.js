@@ -1,9 +1,7 @@
 const express = require('express');
 const cors = require('cors');
-const Database = require('better-sqlite3');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const path = require('path');
 
 const app = express();
 app.use(cors());
@@ -11,18 +9,20 @@ app.use(express.json());
 
 const MASTER_RESET_KEY = process.env.MASTER_RESET_KEY || 'GADO@RESET@2026';
 const JWT_SECRET = process.env.JWT_SECRET || 'gadomarket-jwt-secret-change-in-production';
-const DB_PATH = process.env.DB_PATH || path.join('/tmp', 'gadomarket.db');
 
 const hashSenha = (senha) => crypto.createHash('sha256').update(senha).digest('hex');
 
-let db;
-try {
-  db = new Database(DB_PATH);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
-} catch (err) {
-  console.error('Database connection error:', err);
-}
+// In-memory database para Vercel (sem SQLite)
+const database = {
+  usuarios: [
+    { id: 1, username: 'admin', senha: hashSenha('gado@2024'), email: null, criadoEm: new Date().toISOString() }
+  ],
+  operacoes: [],
+  despesas: [],
+  clientes: [],
+  frigorificos: [],
+  nextIds: { operacoes: 1, despesas: 1, clientes: 1, frigorificos: 1 }
+};
 
 // Middleware de autenticação
 const autenticar = (req, res, next) => {
@@ -38,84 +38,11 @@ const autenticar = (req, res, next) => {
   }
 };
 
-// Inicializar banco de dados
-const initializeDB = () => {
-  try {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS usuarios (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        senha TEXT NOT NULL,
-        email TEXT,
-        resetKey TEXT,
-        resetKeyExpiry INTEGER,
-        criadoEm DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-
-      CREATE TABLE IF NOT EXISTS operacoes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        data TEXT,
-        cliente_id INTEGER,
-        frigorificos_id INTEGER,
-        cabecas INTEGER,
-        pesoPorCabeca REAL,
-        pesoTotal REAL,
-        arrobas REAL,
-        valorCompra REAL,
-        valorVenda REAL,
-        precoCompra REAL,
-        precoVenda REAL,
-        totalCompra REAL,
-        totalVenda REAL,
-        lucro REAL,
-        margem REAL,
-        observacoes TEXT,
-        criadoEm DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (cliente_id) REFERENCES clientes(id),
-        FOREIGN KEY (frigorificos_id) REFERENCES frigorificos(id)
-      );
-
-      CREATE TABLE IF NOT EXISTS despesas (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        operacao_id INTEGER NOT NULL,
-        descricao TEXT NOT NULL,
-        valor REAL NOT NULL,
-        criadoEm DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (operacao_id) REFERENCES operacoes(id)
-      );
-
-      CREATE TABLE IF NOT EXISTS clientes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT UNIQUE NOT NULL,
-        contato TEXT,
-        criadoEm DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-
-      CREATE TABLE IF NOT EXISTS frigorificos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT UNIQUE NOT NULL,
-        localizacao TEXT,
-        criadoEm DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Seed dados padrão
-    const adminExists = db.prepare('SELECT * FROM usuarios WHERE username = ?').get('admin');
-    if (!adminExists) {
-      db.prepare('INSERT INTO usuarios (username, senha) VALUES (?, ?)').run('admin', hashSenha('gado@2024'));
-    }
-  } catch (err) {
-    console.error('Database initialization error:', err);
-  }
-};
-
-initializeDB();
-
 // Login
 app.post('/api/login', (req, res) => {
   try {
     const { username, password } = req.body;
-    const usuario = db.prepare('SELECT * FROM usuarios WHERE username = ?').get(username);
+    const usuario = database.usuarios.find(u => u.username === username);
     
     if (!usuario || usuario.senha !== hashSenha(password)) {
       return res.status(401).json({ erro: 'Usuário ou senha inválidos' });
@@ -137,12 +64,12 @@ app.post('/api/resetar-senha-master', (req, res) => {
       return res.status(401).json({ erro: 'Código secreto inválido' });
     }
 
-    const usuario = db.prepare('SELECT * FROM usuarios WHERE username = ?').get(username);
+    const usuario = database.usuarios.find(u => u.username === username);
     if (!usuario) {
       return res.status(404).json({ erro: 'Usuário não encontrado' });
     }
 
-    db.prepare('UPDATE usuarios SET senha = ? WHERE id = ?').run(hashSenha(novaSenha), usuario.id);
+    usuario.senha = hashSenha(novaSenha);
     res.json({ sucesso: true, mensagem: 'Senha alterada com sucesso' });
   } catch (err) {
     res.status(500).json({ erro: err.message });
@@ -164,7 +91,7 @@ app.get('/api/master-reset-key', autenticar, (req, res) => {
 // CRUD Operações
 app.get('/api/operacoes', autenticar, (req, res) => {
   try {
-    const operacoes = db.prepare('SELECT * FROM operacoes ORDER BY criadoEm DESC').all();
+    const operacoes = database.operacoes.sort((a, b) => new Date(b.criadoEm) - new Date(a.criadoEm));
     res.json(operacoes);
   } catch (err) {
     res.status(500).json({ erro: err.message });
@@ -175,12 +102,29 @@ app.post('/api/operacoes', autenticar, (req, res) => {
   try {
     const { data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes } = req.body;
     
-    const result = db.prepare(`
-      INSERT INTO operacoes (data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes);
+    const newOp = {
+      id: database.nextIds.operacoes++,
+      data,
+      cliente_id,
+      frigorificos_id,
+      cabecas,
+      pesoPorCabeca,
+      pesoTotal,
+      arrobas,
+      valorCompra,
+      valorVenda,
+      precoCompra,
+      precoVenda,
+      totalCompra,
+      totalVenda,
+      lucro,
+      margem,
+      observacoes,
+      criadoEm: new Date().toISOString()
+    };
     
-    res.json({ id: result.lastInsertRowid, sucesso: true });
+    database.operacoes.push(newOp);
+    res.json({ id: newOp.id, sucesso: true });
   } catch (err) {
     res.status(500).json({ erro: err.message });
   }
@@ -189,12 +133,13 @@ app.post('/api/operacoes', autenticar, (req, res) => {
 app.put('/api/operacoes/:id', autenticar, (req, res) => {
   try {
     const { id } = req.params;
-    const { data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes } = req.body;
+    const index = database.operacoes.findIndex(o => o.id === parseInt(id));
     
-    db.prepare(`
-      UPDATE operacoes SET data=?, cliente_id=?, frigorificos_id=?, cabecas=?, pesoPorCabeca=?, pesoTotal=?, arrobas=?, valorCompra=?, valorVenda=?, precoCompra=?, precoVenda=?, totalCompra=?, totalVenda=?, lucro=?, margem=?, observacoes=? WHERE id=?
-    `).run(data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes, id);
-    
+    if (index === -1) {
+      return res.status(404).json({ erro: 'Operação não encontrada' });
+    }
+
+    database.operacoes[index] = { ...database.operacoes[index], ...req.body };
     res.json({ sucesso: true });
   } catch (err) {
     res.status(500).json({ erro: err.message });
@@ -204,7 +149,7 @@ app.put('/api/operacoes/:id', autenticar, (req, res) => {
 app.delete('/api/operacoes/:id', autenticar, (req, res) => {
   try {
     const { id } = req.params;
-    db.prepare('DELETE FROM operacoes WHERE id=?').run(id);
+    database.operacoes = database.operacoes.filter(o => o.id !== parseInt(id));
     res.json({ sucesso: true });
   } catch (err) {
     res.status(500).json({ erro: err.message });
@@ -215,8 +160,16 @@ app.delete('/api/operacoes/:id', autenticar, (req, res) => {
 app.post('/api/despesas', autenticar, (req, res) => {
   try {
     const { operacao_id, descricao, valor } = req.body;
-    const result = db.prepare('INSERT INTO despesas (operacao_id, descricao, valor) VALUES (?, ?, ?)').run(operacao_id, descricao, valor);
-    res.json({ id: result.lastInsertRowid, sucesso: true });
+    const newDespesa = {
+      id: database.nextIds.despesas++,
+      operacao_id,
+      descricao,
+      valor,
+      criadoEm: new Date().toISOString()
+    };
+    
+    database.despesas.push(newDespesa);
+    res.json({ id: newDespesa.id, sucesso: true });
   } catch (err) {
     res.status(500).json({ erro: err.message });
   }
@@ -225,7 +178,7 @@ app.post('/api/despesas', autenticar, (req, res) => {
 app.delete('/api/despesas/:id', autenticar, (req, res) => {
   try {
     const { id } = req.params;
-    db.prepare('DELETE FROM despesas WHERE id=?').run(id);
+    database.despesas = database.despesas.filter(d => d.id !== parseInt(id));
     res.json({ sucesso: true });
   } catch (err) {
     res.status(500).json({ erro: err.message });
@@ -235,7 +188,7 @@ app.delete('/api/despesas/:id', autenticar, (req, res) => {
 // Clientes
 app.get('/api/clientes', autenticar, (req, res) => {
   try {
-    const clientes = db.prepare('SELECT * FROM clientes ORDER BY nome').all();
+    const clientes = database.clientes.sort((a, b) => a.nome.localeCompare(b.nome));
     res.json(clientes);
   } catch (err) {
     res.status(500).json({ erro: err.message });
@@ -245,8 +198,15 @@ app.get('/api/clientes', autenticar, (req, res) => {
 app.post('/api/clientes', autenticar, (req, res) => {
   try {
     const { nome, contato } = req.body;
-    const result = db.prepare('INSERT INTO clientes (nome, contato) VALUES (?, ?)').run(nome, contato);
-    res.json({ id: result.lastInsertRowid, sucesso: true });
+    const newCliente = {
+      id: database.nextIds.clientes++,
+      nome,
+      contato,
+      criadoEm: new Date().toISOString()
+    };
+    
+    database.clientes.push(newCliente);
+    res.json({ id: newCliente.id, sucesso: true });
   } catch (err) {
     res.status(500).json({ erro: err.message });
   }
@@ -255,7 +215,7 @@ app.post('/api/clientes', autenticar, (req, res) => {
 // Frigoríficos
 app.get('/api/frigorificos', autenticar, (req, res) => {
   try {
-    const frigorificos = db.prepare('SELECT * FROM frigorificos ORDER BY nome').all();
+    const frigorificos = database.frigorificos.sort((a, b) => a.nome.localeCompare(b.nome));
     res.json(frigorificos);
   } catch (err) {
     res.status(500).json({ erro: err.message });
@@ -265,8 +225,15 @@ app.get('/api/frigorificos', autenticar, (req, res) => {
 app.post('/api/frigorificos', autenticar, (req, res) => {
   try {
     const { nome, localizacao } = req.body;
-    const result = db.prepare('INSERT INTO frigorificos (nome, localizacao) VALUES (?, ?)').run(nome, localizacao);
-    res.json({ id: result.lastInsertRowid, sucesso: true });
+    const newFrigo = {
+      id: database.nextIds.frigorificos++,
+      nome,
+      localizacao,
+      criadoEm: new Date().toISOString()
+    };
+    
+    database.frigorificos.push(newFrigo);
+    res.json({ id: newFrigo.id, sucesso: true });
   } catch (err) {
     res.status(500).json({ erro: err.message });
   }
