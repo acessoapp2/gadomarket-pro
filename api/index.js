@@ -373,6 +373,12 @@ app.post('/api/operacoes', autenticar, async (req, res) => {
     
     const { data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes } = req.body;
     
+    console.log('🔍 Valores extraídos:');
+    console.log('  - pesoPorCabeca:', pesoPorCabeca, 'tipo:', typeof pesoPorCabeca);
+    console.log('  - pesoTotal:', pesoTotal, 'tipo:', typeof pesoTotal);
+    console.log('  - valorCompra:', valorCompra, 'tipo:', typeof valorCompra);
+    console.log('  - valorVenda:', valorVenda, 'tipo:', typeof valorVenda);
+    
     // Validar campos obrigatórios
     if (!data || cliente_id === null || cabecas === null) {
       console.warn('⚠️ Campos obrigatórios faltando:', {data, cliente_id, cabecas});
@@ -387,6 +393,11 @@ app.post('/api/operacoes', autenticar, async (req, res) => {
     
     const op = result.rows[0];
     console.log('✅ Operação inserida com ID:', op.id);
+    console.log('🔍 Valores retornados do DB:');
+    console.log('  - pesoPorCabeca:', op.pesoPorCabeca, 'tipo:', typeof op.pesoPorCabeca);
+    console.log('  - pesoTotal:', op.pesoTotal, 'tipo:', typeof op.pesoTotal);
+    console.log('  - valorCompra:', op.valorCompra, 'tipo:', typeof op.valorCompra);
+    console.log('  - valorVenda:', op.valorVenda, 'tipo:', typeof op.valorVenda);
     
     // Transformar field names para as que o frontend espera
     const operacaoTransformada = {
