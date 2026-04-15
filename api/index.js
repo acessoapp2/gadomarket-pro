@@ -141,27 +141,33 @@ const initializeDB = async (tentativa = 1) => {
     }
 
     // Seed de clientes
-    const clientesResult = await client.query('SELECT COUNT(*) AS c FROM clientes');
-    if (clientesResult.rows[0].c === 0) {
+    const clientesResult = await client.query('SELECT COUNT(*) as c FROM clientes');
+    const clientesCount = parseInt(clientesResult.rows[0].c);
+    if (clientesCount === 0) {
       await client.query(`
         INSERT INTO clientes (nome, contato) VALUES 
         ('José Aparecido Silva', '(67) 99876-5432'),
         ('Maria das Dores Ferreira', '(34) 98765-4321'),
         ('Carlos Eduardo Nunes', '(65) 97654-3210')
       `);
-      console.log('✅ Clientes seed criados');
+      console.log('✅ Clientes seed criados (3 clientes)');
+    } else {
+      console.log(`✅ Clientes já existem (${clientesCount})`);
     }
 
     // Seed de frigorificos
-    const frigoResult = await client.query('SELECT COUNT(*) AS c FROM frigorificos');
-    if (frigoResult.rows[0].c === 0) {
+    const frigoResult = await client.query('SELECT COUNT(*) as c FROM frigorificos');
+    const frigoCount = parseInt(frigoResult.rows[0].c);
+    if (frigoCount === 0) {
       await client.query(`
         INSERT INTO frigorificos (nome, localizacao) VALUES 
         ('JBS - Unidade Campo Grande', 'Campo Grande - MS'),
         ('Minerva Foods', 'Barretos - SP'),
         ('Marfrig', 'Promissão - SP')
       `);
-      console.log('✅ Frigorificos seed criados');
+      console.log('✅ Frigorificos seed criados (3 frigorificos)');
+    } else {
+      console.log(`✅ Frigorificos já existem (${frigoCount})`);
     }
 
     client.release();
@@ -228,10 +234,10 @@ app.get('/api/diagnostico', async (req, res) => {
         const operacoes = await pool.query('SELECT COUNT(*) as c FROM operacoes');
         
         diagnostico.table_counts = {
-          usuarios: usuarios.rows[0].c,
-          clientes: clientes.rows[0].c,
-          frigorificos: frigorificos.rows[0].c,
-          operacoes: operacoes.rows[0].c
+          usuarios: parseInt(usuarios.rows[0].c),
+          clientes: parseInt(clientes.rows[0].c),
+          frigorificos: parseInt(frigorificos.rows[0].c),
+          operacoes: parseInt(operacoes.rows[0].c)
         };
       } catch (err) {
         diagnostico.database_connection = 'erro';
