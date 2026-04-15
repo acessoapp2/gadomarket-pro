@@ -360,6 +360,8 @@ app.get('/api/operacoes', autenticar, async (req, res) => {
     }
     const result = await pool.query('SELECT * FROM operacoes ORDER BY criadoEm DESC');
     
+    console.log('📤 Retornando operacoes, primeira operação:', JSON.stringify(result.rows[0], null, 2));
+    
     // Transformar field names para as que o frontend espera
     const operacoes = result.rows.map(op => ({
       ...op,
@@ -367,6 +369,8 @@ app.get('/api/operacoes', autenticar, async (req, res) => {
       valorCompraArroba: op.valorCompra || op.precoCompra,
       valorVendaArroba: op.valorVenda || op.precoVenda
     }));
+    
+    console.log('📤 Operação transformada:', JSON.stringify(operacoes[0], null, 2));
     
     res.json(operacoes);
   } catch (err) {
@@ -437,6 +441,8 @@ app.post('/api/operacoes', autenticar, async (req, res) => {
     console.log('  - pesoTotal:', op.pesoTotal, 'tipo:', typeof op.pesoTotal);
     console.log('  - valorCompra:', op.valorCompra, 'tipo:', typeof op.valorCompra);
     console.log('  - valorVenda:', op.valorVenda, 'tipo:', typeof op.valorVenda);
+    
+    console.log('📊 OBJETO COMPLETO SALVO:', JSON.stringify(op, null, 2));
     
     // Transformar field names para as que o frontend espera
     const operacaoTransformada = {
