@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 // ─── CORES ────────────────────────────────────────────────────────
 const C = {
@@ -655,6 +657,25 @@ function Operacoes({dados,onRefresh,isMobile}){
     finally{setDeleting(false);}
   };
 
+  const exportarPDF = async (operacao) => {
+    try {
+      const element = document.getElementById('modal-detalhes-conteudo');
+      if (!element) return;
+      
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+      pdf.save(`operacao_${operacao.cliente_id}_${operacao.data}.pdf`);
+    } catch (e) {
+      console.error('Erro ao exportar PDF:', e);
+      alert('Erro ao gerar PDF: ' + e.message);
+    }
+  };
+
   return(
     <div>
       {/* Stats */}
@@ -706,8 +727,8 @@ function Operacoes({dados,onRefresh,isMobile}){
                   <td style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}22`,color:C.textMuted,fontSize:13}}>{getFrigoNome(o)||"—"}</td>
                   <td style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}22`,color:C.textPrimary,fontSize:14,textAlign:"right"}}>{o.cabecas}</td>
                   <td style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}22`,color:C.textPrimary,fontSize:14,textAlign:"right"}}>{fmt(o.arrobasTotal)}</td>
-                  <td style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}22`,color:C.textMuted,fontSize:13,textAlign:"right"}}>R$ {o.valorCompraArroba}</td>
-                  <td style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}22`,color:C.textMuted,fontSize:13,textAlign:"right"}}>R$ {o.valorVendaArroba}</td>
+                  <td style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}22`,color:C.textMuted,fontSize:13,textAlign:"right"}}>R$ {fmt(o.valorCompraArroba)}</td>
+                  <td style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}22`,color:C.textMuted,fontSize:13,textAlign:"right"}}>R$ {fmt(o.valorVendaArroba)}</td>
                   <td style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}22`,textAlign:"right"}}>
                     <span style={{fontSize:15,fontWeight:"bold",color:o.lucro>=0?C.profit:C.loss}}>{o.lucro>=0?"+":""}R$ {fmt(o.lucro)}</span>
                   </td>
@@ -761,51 +782,59 @@ function Operacoes({dados,onRefresh,isMobile}){
       {/* MODAL DETALHE */}
       {detalhe&&(
         <Modal title="Detalhes da Operação" onClose={()=>setDetalhe(null)}>
-          <div style={{textAlign:"center",marginBottom:20}}>
-            <div style={{fontSize:56}}>{detalhe.sexo==="Boi"?"🐂":"🐄"}</div>
-            <div style={{fontSize:20,fontWeight:"bold",color:C.accent}}>{getClienteNome(detalhe)}</div>
-            <div style={{color:C.textMuted,fontSize:13,marginTop:4}}>{getFrigoNome(detalhe)}</div>
-            <div style={{marginTop:8}}><Badge cor={detalhe.status==="Concluída"?"verde":"amarelo"} texto={detalhe.status}/></div>
-          </div>
-          <InfoRow label="📅 Data" value={detalhe.data}/>
-          <InfoRow label="Tipo" value={detalhe.sexo}/>
-          <InfoRow label="🐄 Cabeças" value={`${detalhe.cabecas} animais`}/>
-          <InfoRow label="⚖️ Peso por cabeça" value={`${detalhe.pesoPorCabeca} kg`}/>
-          <InfoRow label="⚖️ Peso total" value={`${fmtInt(detalhe.pesoTotal)} kg`}/>
-          <InfoRow label="@ Arrobas totais" value={`${fmt(detalhe.arrobasTotal)} @`}/>
-          <InfoRow label="💲 Compra/@" value={`R$ ${detalhe.valorCompraArroba}`}/>
-          <InfoRow label="💲 Venda/@" value={`R$ ${detalhe.valorVendaArroba}`}/>
-          <InfoRow label="🔴 Total Compra" value={`R$ ${fmt(detalhe.totalCompra)}`}/>
-          <InfoRow label="🟢 Total Venda" value={`R$ ${fmt(detalhe.totalVenda)}`}/>
+          <div id="modal-detalhes-conteudo">
+            <div style={{textAlign:"center",marginBottom:20}}>
+              <div style={{fontSize:56}}>{detalhe.sexo==="Boi"?"🐂":"🐄"}</div>
+              <div style={{fontSize:20,fontWeight:"bold",color:C.accent}}>{getClienteNome(detalhe)}</div>
+              <div style={{color:C.textMuted,fontSize:13,marginTop:4}}>{getFrigoNome(detalhe)}</div>
+              <div style={{marginTop:8}}><Badge cor={detalhe.status==="Concluída"?"verde":"amarelo"} texto={detalhe.status}/></div>
+            </div>
+            <InfoRow label="📅 Data" value={detalhe.data}/>
+            <InfoRow label="Tipo" value={detalhe.sexo}/>
+            <InfoRow label="🐄 Cabeças" value={`${detalhe.cabecas} animais`}/>
+            <InfoRow label="⚖️ Peso por cabeça" value={`${detalhe.pesoPorCabeca} kg`}/>
+            <InfoRow label="⚖️ Peso total" value={`${fmtInt(detalhe.pesoTotal)} kg`}/>
+            <InfoRow label="@ Arrobas totais" value={`${fmt(detalhe.arrobasTotal)} @`}/>
+            <InfoRow label="💲 Compra/@" value={`R$ ${detalhe.valorCompraArroba}`}/>
+            <InfoRow label="💲 Venda/@" value={`R$ ${detalhe.valorVendaArroba}`}/>
+            <InfoRow label="🔴 Total Compra" value={`R$ ${fmt(detalhe.totalCompra)}`}/>
+            <InfoRow label="🟢 Total Venda" value={`R$ ${fmt(detalhe.totalVenda)}`}/>
 
-          {detalhe.despesas?.length>0&&(
-            <div style={{background:C.card2,borderRadius:12,padding:14,margin:"14px 0",border:`1px solid ${C.border}`}}>
-              <div style={{fontSize:12,color:C.textSecondary,fontWeight:"bold",marginBottom:10,textTransform:"uppercase",letterSpacing:0.8}}>📋 Despesas</div>
-              {detalhe.despesas.map((d,i)=>(
-                <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:i<detalhe.despesas.length-1?`1px solid ${C.border}`:"none"}}>
-                  <span style={{fontSize:13,color:C.textPrimary}}>{d.descricao}</span>
-                  <span style={{fontSize:13,color:C.warn,fontWeight:"bold"}}>R$ {fmt(d.valor)}</span>
+            {detalhe.despesas?.length>0&&(
+              <div style={{background:C.card2,borderRadius:12,padding:14,margin:"14px 0",border:`1px solid ${C.border}`}}>
+                <div style={{fontSize:12,color:C.textSecondary,fontWeight:"bold",marginBottom:10,textTransform:"uppercase",letterSpacing:0.8}}>📋 Despesas</div>
+                {detalhe.despesas.map((d,i)=>(
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:i<detalhe.despesas.length-1?`1px solid ${C.border}`:"none"}}>
+                    <span style={{fontSize:13,color:C.textPrimary}}>{d.descricao}</span>
+                    <span style={{fontSize:13,color:C.warn,fontWeight:"bold"}}>R$ {fmt(d.valor)}</span>
+                  </div>
+                ))}
+                <div style={{display:"flex",justifyContent:"space-between",marginTop:10,paddingTop:10,borderTop:`1px solid ${C.border}`}}>
+                  <span style={{fontSize:13,fontWeight:"bold",color:C.textPrimary}}>Total Despesas</span>
+                  <span style={{fontSize:14,fontWeight:"bold",color:C.warn}}>R$ {fmt(detalhe.totalDespesas)}</span>
                 </div>
-              ))}
-              <div style={{display:"flex",justifyContent:"space-between",marginTop:10,paddingTop:10,borderTop:`1px solid ${C.border}`}}>
-                <span style={{fontSize:13,fontWeight:"bold",color:C.textPrimary}}>Total Despesas</span>
-                <span style={{fontSize:14,fontWeight:"bold",color:C.warn}}>R$ {fmt(detalhe.totalDespesas)}</span>
+              </div>
+            )}
+
+            <div style={{background:detalhe.lucro>=0?"#0a3a0a":"#3a0a0a",borderRadius:14,padding:20,border:`2px solid ${detalhe.lucro>=0?C.green:"#7a1a1a"}`,textAlign:"center"}}>
+              <div style={{fontSize:12,color:C.textMuted,marginBottom:6,letterSpacing:1}}>LUCRO LÍQUIDO</div>
+              <div style={{fontSize:30,fontWeight:"bold",color:detalhe.lucro>=0?C.profit:C.loss}}>{detalhe.lucro>=0?"+":""}R$ {fmt(detalhe.lucro)}</div>
+              <div style={{fontSize:12,color:C.textMuted,marginTop:6}}>
+                Margem: {detalhe.totalVenda>0?((detalhe.lucro/detalhe.totalVenda)*100).toFixed(1):0}%
               </div>
             </div>
-          )}
-
-          <div style={{background:detalhe.lucro>=0?"#0a3a0a":"#3a0a0a",borderRadius:14,padding:20,border:`2px solid ${detalhe.lucro>=0?C.green:"#7a1a1a"}`,textAlign:"center"}}>
-            <div style={{fontSize:12,color:C.textMuted,marginBottom:6,letterSpacing:1}}>LUCRO LÍQUIDO</div>
-            <div style={{fontSize:30,fontWeight:"bold",color:detalhe.lucro>=0?C.profit:C.loss}}>{detalhe.lucro>=0?"+":""}R$ {fmt(detalhe.lucro)}</div>
-            <div style={{fontSize:12,color:C.textMuted,marginTop:6}}>
-              Margem: {detalhe.totalVenda>0?((detalhe.lucro/detalhe.totalVenda)*100).toFixed(1):0}%
-            </div>
           </div>
 
-          <button onClick={()=>excluir(detalhe.id)} disabled={deleting}
-            style={{width:"100%",background:"#3a0a0a",border:"none",borderRadius:12,padding:14,color:C.loss,fontSize:14,cursor:deleting?"not-allowed":"pointer",fontFamily:"Georgia,serif",marginTop:16,opacity:deleting?.6:1}}>
-            {deleting?"⏳ Excluindo...":"🗑 Excluir Operação"}
-          </button>
+          <div style={{display:"flex",gap:10,marginTop:16}}>
+            <button onClick={()=>exportarPDF(detalhe)}
+              style={{flex:1,background:C.accent,border:"none",borderRadius:12,padding:14,color:C.bg,fontSize:14,cursor:"pointer",fontFamily:"Georgia,serif",fontWeight:"bold"}}>
+              📄 Exportar PDF
+            </button>
+            <button onClick={()=>excluir(detalhe.id)} disabled={deleting}
+              style={{flex:1,background:"#3a0a0a",border:"none",borderRadius:12,padding:14,color:C.loss,fontSize:14,cursor:deleting?"not-allowed":"pointer",fontFamily:"Georgia,serif",opacity:deleting?.6:1}}>
+              {deleting?"⏳ Excluindo...":"🗑 Excluir"}
+            </button>
+          </div>
         </Modal>
       )}
     </div>
