@@ -359,7 +359,16 @@ app.post('/api/operacoes', autenticar, async (req, res) => {
     if (!pool) {
       return res.status(500).json({ erro: 'Banco de dados não disponível' });
     }
+    
+    console.log('📥 Recebendo nova operação:', req.body);
+    
     const { data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes } = req.body;
+    
+    // Validar campos obrigatórios
+    if (!data || cliente_id === null || cabecas === null) {
+      console.warn('⚠️ Campos obrigatórios faltando:', {data, cliente_id, cabecas});
+      return res.status(400).json({ erro: 'Campos obrigatórios: data, cliente_id, cabecas' });
+    }
     
     const result = await pool.query(`
       INSERT INTO operacoes (data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes)
@@ -367,9 +376,11 @@ app.post('/api/operacoes', autenticar, async (req, res) => {
       RETURNING id
     `, [data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes]);
     
+    console.log('✅ Operação inserida com ID:', result.rows[0].id);
     res.json({ id: result.rows[0].id, sucesso: true });
   } catch (err) {
-    console.error('❌ Erro ao criar operacao:', err);
+    console.error('❌ Erro ao criar operacao:', err.message);
+    console.error('Stack:', err.stack);
     res.status(500).json({ erro: 'Erro ao criar operação: ' + err.message });
   }
 });

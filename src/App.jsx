@@ -370,13 +370,23 @@ function NovaOperacao({dados,onSalvo,onVoltar,isMobile}){
   const removerAnimal=i=>setAnimaisIndividuais(animaisIndividuais.filter((_,idx)=>idx!==i));
 
   const salvar = async ()=>{
-    if(!form.cliente||!form.sexo||!cabecas) return;
+    if(!form.cliente||!form.sexo||!cabecas) {
+      console.warn("⚠️ Validação falhou:", {cliente:form.cliente, sexo:form.sexo, cabecas});
+      alert("⚠️ Por favor preencha: Cliente, Sexo e Cabeças");
+      return;
+    }
+    
     setSaving(true);
+    const clienteId = clientes.find(c=>c.nome===form.cliente)?.id||null;
+    const frigoId = frigorificos.find(f=>f.nome===form.frigorifico)?.id||null;
+    
+    console.log("📤 Salvando operação:", {clienteId, frigoId, cabecas, lucro});
+    
     try{
-      await apiFetch("/operacoes",{method:"POST",body:{
+      const payload = {
         data:new Date().toLocaleDateString("pt-BR"),
-        cliente_id:clientes.find(c=>c.nome===form.cliente)?.id||null,
-        frigorificos_id:frigorificos.find(f=>f.nome===form.frigorifico)?.id||null,
+        cliente_id:clienteId,
+        frigorificos_id:frigoId,
         cabecas,
         pesoPorCabeca:pesoCab,
         pesoTotal,
@@ -390,13 +400,20 @@ function NovaOperacao({dados,onSalvo,onVoltar,isMobile}){
         lucro,
         margem,
         observacoes:form.observacoes||""
-      }});
+      };
+      
+      console.log("📨 Payload:", payload);
+      
+      const resultado = await apiFetch("/operacoes",{method:"POST",body:payload});
+      
+      console.log("✅ Operação salva com sucesso:", resultado);
       setSalvo(true);
       await onSalvo();
       setTimeout(()=>{setSalvo(false);onVoltar();},1800);
     }catch(e){
+      console.error("❌ Erro ao salvar operação:", e.message);
+      console.error("Stack:", e.stack);
       alert("❌ Erro ao salvar: "+e.message);
-      console.error(e);
     }
     finally{setSaving(false);}
   };
