@@ -612,13 +612,19 @@ function Operacoes({dados,onRefresh,isMobile}){
   const [busca,setBusca]=useState("");
   const [deleting,setDeleting]=useState(false);
 
-  const lista=dados.operacoes.filter(o=>
-    o.cliente.toLowerCase().includes(busca.toLowerCase())||
-    (o.frigorifico||"").toLowerCase().includes(busca.toLowerCase())
-  );
-  const totalLucro=dados.operacoes.reduce((s,o)=>s+o.lucro,0);
-  const totalFat=dados.operacoes.reduce((s,o)=>s+o.totalVenda,0);
-  const totalCab=dados.operacoes.reduce((s,o)=>s+o.cabecas,0);
+  // Helper para resolver nomes a partir de IDs
+  const getClienteNome = (op) => op.cliente || (dados.clientes.find(c=>c.id===op.cliente_id)?.nome || "Desconhecido");
+  const getFrigoNome = (op) => op.frigorifico || (dados.frigorificos.find(f=>f.id===op.frigorificos_id)?.nome || "Desconhecido");
+
+  const lista=dados.operacoes.filter(o=>{
+    const clienteNome = getClienteNome(o);
+    const frigoNome = getFrigoNome(o);
+    return clienteNome.toLowerCase().includes(busca.toLowerCase())||
+           frigoNome.toLowerCase().includes(busca.toLowerCase());
+  });
+  const totalLucro=dados.operacoes.reduce((s,o)=>s+(o.lucro||0),0);
+  const totalFat=dados.operacoes.reduce((s,o)=>s+(o.totalVenda||0),0);
+  const totalCab=dados.operacoes.reduce((s,o)=>s+(o.cabecas||0),0);
   const totalOps=dados.operacoes.length;
 
   const excluir = async id=>{
@@ -679,8 +685,8 @@ function Operacoes({dados,onRefresh,isMobile}){
                   <td style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}22`}}>
                     <span style={{fontSize:22}}>{o.sexo==="Boi"?"🐂":"🐄"}</span>
                   </td>
-                  <td style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}22`,color:C.textPrimary,fontWeight:"bold",fontSize:14}}>{o.cliente}</td>
-                  <td style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}22`,color:C.textMuted,fontSize:13}}>{o.frigorifico||"—"}</td>
+                  <td style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}22`,color:C.textPrimary,fontWeight:"bold",fontSize:14}}>{getClienteNome(o)}</td>
+                  <td style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}22`,color:C.textMuted,fontSize:13}}>{getFrigoNome(o)||"—"}</td>
                   <td style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}22`,color:C.textPrimary,fontSize:14,textAlign:"right"}}>{o.cabecas}</td>
                   <td style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}22`,color:C.textPrimary,fontSize:14,textAlign:"right"}}>{fmt(o.arrobasTotal)}</td>
                   <td style={{padding:"12px 14px",borderBottom:`1px solid ${C.border}22`,color:C.textMuted,fontSize:13,textAlign:"right"}}>R$ {o.valorCompraArroba}</td>
@@ -706,8 +712,8 @@ function Operacoes({dados,onRefresh,isMobile}){
             <div style={{display:"flex",alignItems:"center",gap:10}}>
               <span style={{fontSize:24}}>{o.sexo==="Boi"?"🐂":"🐄"}</span>
               <div>
-                <div style={{fontSize:14,fontWeight:"bold",color:C.textPrimary}}>{o.cliente}</div>
-                <div style={{fontSize:11,color:C.textMuted}}>{o.frigorifico||"Sem frigorífico"}</div>
+                <div style={{fontSize:14,fontWeight:"bold",color:C.textPrimary}}>{getClienteNome(o)}</div>
+                <div style={{fontSize:11,color:C.textMuted}}>{getFrigoNome(o)||"Sem frigorífico"}</div>
               </div>
             </div>
             <Badge cor={o.status==="Concluída"?"verde":"amarelo"} texto={o.status}/>
@@ -740,8 +746,8 @@ function Operacoes({dados,onRefresh,isMobile}){
         <Modal title="Detalhes da Operação" onClose={()=>setDetalhe(null)}>
           <div style={{textAlign:"center",marginBottom:20}}>
             <div style={{fontSize:56}}>{detalhe.sexo==="Boi"?"🐂":"🐄"}</div>
-            <div style={{fontSize:20,fontWeight:"bold",color:C.accent}}>{detalhe.cliente}</div>
-            <div style={{color:C.textMuted,fontSize:13,marginTop:4}}>{detalhe.frigorifico}</div>
+            <div style={{fontSize:20,fontWeight:"bold",color:C.accent}}>{getClienteNome(detalhe)}</div>
+            <div style={{color:C.textMuted,fontSize:13,marginTop:4}}>{getFrigoNome(detalhe)}</div>
             <div style={{marginTop:8}}><Badge cor={detalhe.status==="Concluída"?"verde":"amarelo"} texto={detalhe.status}/></div>
           </div>
           <InfoRow label="📅 Data" value={detalhe.data}/>
