@@ -346,17 +346,29 @@ function NovaOperacao({dados,onSalvo,onVoltar,isMobile}){
     try{
       await apiFetch("/operacoes",{method:"POST",body:{
         data:new Date().toLocaleDateString("pt-BR"),
-        cliente:form.cliente, frigorifico:form.frigorifico, sexo:form.sexo,
-        cabecas, pesoPorCabeca:pesoCab, pesoTotal, arrobasTotal:arrobas,
-        valorCompraArroba:compraArr, valorVendaArroba:vendaArr,
-        totalCompra, totalVenda,
-        despesas:despesas.filter(d=>d.descricao),
-        totalDespesas:totalDesp, lucro, status:"Concluída",
+        cliente_id:clientes.find(c=>c.nome===form.cliente)?.id||null,
+        frigorificos_id:frigorificos.find(f=>f.nome===form.frigorifico)?.id||null,
+        cabecas,
+        pesoPorCabeca:pesoCab,
+        pesoTotal,
+        arrobas,
+        valorCompra:totalCompra,
+        valorVenda:totalVenda,
+        precoCompra:compraArr,
+        precoVenda:vendaArr,
+        totalCompra,
+        totalVenda,
+        lucro,
+        margem,
+        observacoes:form.observacoes||""
       }});
       setSalvo(true);
       await onSalvo();
       setTimeout(()=>{setSalvo(false);onVoltar();},1800);
-    }catch(e){alert(e.message);}
+    }catch(e){
+      alert("❌ Erro ao salvar: "+e.message);
+      console.error(e);
+    }
     finally{setSaving(false);}
   };
 

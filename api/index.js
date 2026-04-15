@@ -168,11 +168,16 @@ app.post('/api/login', async (req, res) => {
     }
 
     const token = jwt.sign({ id: usuario.id, username: usuario.username }, JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, usuario: { id: usuario.id, username: usuario.username } });
+    res.json({ token, username: usuario.username });
   } catch (err) {
     console.error('❌ Login error:', err);
     res.status(500).json({ erro: 'Erro no login: ' + err.message });
   }
+});
+
+// Get current user
+app.get('/api/me', autenticar, (req, res) => {
+  res.json({ username: req.usuario.username, id: req.usuario.id });
 });
 
 // Reset Master
