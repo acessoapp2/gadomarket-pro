@@ -13,6 +13,11 @@ const C = {
 };
 const fmt    = n => Number(n).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtInt = n => Number(n).toLocaleString("pt-BR");
+const fmtNum = n => {
+  if (n === null || n === undefined || n === '' || isNaN(n)) return '—';
+  const num = Number(n);
+  return isNaN(num) ? '—' : num.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+};
 const inp = {
   width:"100%", background:C.card2, border:`1px solid ${C.border2}`,
   borderRadius:10, padding:"12px 14px", color:C.textPrimary,
@@ -793,13 +798,13 @@ function Operacoes({dados,onRefresh,isMobile}){
             <InfoRow label="📅 Data" value={detalhe.data}/>
             <InfoRow label="Tipo" value={detalhe.sexo}/>
             <InfoRow label="🐄 Cabeças" value={`${detalhe.cabecas} animais`}/>
-            <InfoRow label="⚖️ Peso por cabeça" value={`${detalhe.pesoPorCabeca} kg`}/>
-            <InfoRow label="⚖️ Peso total" value={`${fmtInt(detalhe.pesoTotal)} kg`}/>
-            <InfoRow label="@ Arrobas totais" value={`${fmt(detalhe.arrobasTotal)} @`}/>
-            <InfoRow label="💲 Compra/@" value={`R$ ${detalhe.valorCompraArroba}`}/>
-            <InfoRow label="💲 Venda/@" value={`R$ ${detalhe.valorVendaArroba}`}/>
-            <InfoRow label="🔴 Total Compra" value={`R$ ${fmt(detalhe.totalCompra)}`}/>
-            <InfoRow label="🟢 Total Venda" value={`R$ ${fmt(detalhe.totalVenda)}`}/>
+            <InfoRow label="⚖️ Peso por cabeça" value={`${fmtNum(detalhe.pesoPorCabeca)} kg`}/>
+            <InfoRow label="⚖️ Peso total" value={`${fmtNum(detalhe.pesoTotal)} kg`}/>
+            <InfoRow label="@ Arrobas totais" value={`${fmtNum(detalhe.arrobasTotal)} @`}/>
+            <InfoRow label="💲 Compra/@" value={`R$ ${fmtNum(detalhe.valorCompraArroba)}`}/>
+            <InfoRow label="💲 Venda/@" value={`R$ ${fmtNum(detalhe.valorVendaArroba)}`}/>
+            <InfoRow label="🔴 Total Compra" value={`R$ ${fmtNum(detalhe.totalCompra)}`}/>
+            <InfoRow label="🟢 Total Venda" value={`R$ ${fmtNum(detalhe.totalVenda)}`}/>
 
             {detalhe.despesas?.length>0&&(
               <div style={{background:C.card2,borderRadius:12,padding:14,margin:"14px 0",border:`1px solid ${C.border}`}}>
@@ -819,7 +824,7 @@ function Operacoes({dados,onRefresh,isMobile}){
 
             <div style={{background:detalhe.lucro>=0?"#0a3a0a":"#3a0a0a",borderRadius:14,padding:20,border:`2px solid ${detalhe.lucro>=0?C.green:"#7a1a1a"}`,textAlign:"center"}}>
               <div style={{fontSize:12,color:C.textMuted,marginBottom:6,letterSpacing:1}}>LUCRO LÍQUIDO</div>
-              <div style={{fontSize:30,fontWeight:"bold",color:detalhe.lucro>=0?C.profit:C.loss}}>{detalhe.lucro>=0?"+":""}R$ {fmt(detalhe.lucro)}</div>
+              <div style={{fontSize:30,fontWeight:"bold",color:detalhe.lucro>=0?C.profit:C.loss}}>{detalhe.lucro>=0?"+":""}R$ {fmtNum(detalhe.lucro)}</div>
               <div style={{fontSize:12,color:C.textMuted,marginTop:6}}>
                 Margem: {detalhe.totalVenda>0?((detalhe.lucro/detalhe.totalVenda)*100).toFixed(1):0}%
               </div>
