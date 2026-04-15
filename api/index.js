@@ -178,12 +178,71 @@ const initializeDB = async (tentativa = 1) => {
 initializeDB();
 
 // Health check
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok',
-    database: pool ? 'conectado' : 'desconectado',
-    timestamp: new Date().toISOString()
-  });
+app.get('/api/health', async (req, res) => {
+  try {
+    if (!pool) {
+      return res.status(503).json({ 
+        status: 'erro',
+        message: 'Pool não inicializado',
+        database: 'desconectado'
+      });
+    }
+    
+    // Testar conexão
+    const result = await pool.query('SELECT 1 as ping');
+    res.json({ 
+      status: 'ok',
+      database: 'conectado',
+      ping: result.rows[0].ping,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('❌ Health check error:', err);
+    res.status(503).json({ 
+      status: 'erro',
+      message: err.message,
+      database: 'erro'
+    });
+  }
+});
+
+// Diagnóstico
+app.get('/api/diagnostico', async (req, res) => {
+  try {
+    const diagnostico = {
+      timestamp: new Date().toISOString(),
+      database_url_configured: !!DATABASE_URL,
+      pool_exists: !!pool
+    };
+    
+    if (pool) {
+      try {
+        // Testar SELECT simples
+        const result = await pool.query('SELECT 1 as test');
+        diagnostico.database_connection = 'ok';
+        
+        // Contar registros
+        const usuarios = await pool.query('SELECT COUNT(*) as c FROM usuarios');
+        const clientes = await pool.query('SELECT COUNT(*) as c FROM clientes');
+        const frigorificos = await pool.query('SELECT COUNT(*) as c FROM frigorificos');
+        const operacoes = await pool.query('SELECT COUNT(*) as c FROM operacoes');
+        
+        diagnostico.table_counts = {
+          usuarios: usuarios.rows[0].c,
+          clientes: clientes.rows[0].c,
+          frigorificos: frigorificos.rows[0].c,
+          operacoes: operacoes.rows[0].c
+        };
+      } catch (err) {
+        diagnostico.database_connection = 'erro';
+        diagnostico.error = err.message;
+      }
+    }
+    
+    res.json(diagnostico);
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
 // Login
