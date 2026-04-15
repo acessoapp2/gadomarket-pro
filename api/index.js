@@ -140,6 +140,30 @@ const initializeDB = async (tentativa = 1) => {
       console.log('✅ Usuário admin já existe');
     }
 
+    // Seed de clientes
+    const clientesResult = await client.query('SELECT COUNT(*) AS c FROM clientes');
+    if (clientesResult.rows[0].c === 0) {
+      await client.query(`
+        INSERT INTO clientes (nome, contato) VALUES 
+        ('José Aparecido Silva', '(67) 99876-5432'),
+        ('Maria das Dores Ferreira', '(34) 98765-4321'),
+        ('Carlos Eduardo Nunes', '(65) 97654-3210')
+      `);
+      console.log('✅ Clientes seed criados');
+    }
+
+    // Seed de frigorificos
+    const frigoResult = await client.query('SELECT COUNT(*) AS c FROM frigorificos');
+    if (frigoResult.rows[0].c === 0) {
+      await client.query(`
+        INSERT INTO frigorificos (nome, localizacao) VALUES 
+        ('JBS - Unidade Campo Grande', 'Campo Grande - MS'),
+        ('Minerva Foods', 'Barretos - SP'),
+        ('Marfrig', 'Promissão - SP')
+      `);
+      console.log('✅ Frigorificos seed criados');
+    }
+
     client.release();
     console.log('✅ Database inicializado com sucesso!');
   } catch (err) {
