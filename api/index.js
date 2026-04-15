@@ -362,15 +362,34 @@ app.get('/api/operacoes', autenticar, async (req, res) => {
     
     console.log('📤 Retornando operacoes, primeira operação:', JSON.stringify(result.rows[0], null, 2));
     
-    // Transformar field names para as que o frontend espera
+    // Normalizar nomes de colunas de lowercase para camelCase
     const operacoes = result.rows.map(op => ({
-      ...op,
+      id: op.id,
+      data: op.data,
+      cliente_id: op.cliente_id,
+      frigorificos_id: op.frigorificos_id,
+      sexo: op.sexo,
+      cabecas: op.cabecas,
+      pesoPorCabeca: op.pesoporcabeca,
+      pesoTotal: op.pesototal,
+      arrobas: op.arrobas,
+      valorCompra: op.valorcompra,
+      valorVenda: op.valorvenda,
+      precoCompra: op.precocompra,
+      precoVenda: op.precovenda,
+      totalCompra: op.totalcompra,
+      totalVenda: op.totalvenda,
+      lucro: op.lucro,
+      margem: op.margem,
+      observacoes: op.observacoes,
+      criadoEm: op.criadoem,
+      // Campos transformados para o frontend
       arrobasTotal: op.arrobas,
-      valorCompraArroba: op.valorCompra || op.precoCompra,
-      valorVendaArroba: op.valorVenda || op.precoVenda
+      valorCompraArroba: op.valorcompra || op.precocompra,
+      valorVendaArroba: op.valorvenda || op.precovenda
     }));
     
-    console.log('📤 Operação transformada:', JSON.stringify(operacoes[0], null, 2));
+    console.log('📤 Operação normalizada:', JSON.stringify(operacoes[0], null, 2));
     
     res.json(operacoes);
   } catch (err) {
@@ -444,12 +463,31 @@ app.post('/api/operacoes', autenticar, async (req, res) => {
     
     console.log('📊 OBJETO COMPLETO SALVO:', JSON.stringify(op, null, 2));
     
-    // Transformar field names para as que o frontend espera
+    // Normalizar nomes de colunas de lowercase para camelCase
     const operacaoTransformada = {
-      ...op,
+      id: op.id,
+      data: op.data,
+      cliente_id: op.cliente_id,
+      frigorificos_id: op.frigorificos_id,
+      sexo: op.sexo,
+      cabecas: op.cabecas,
+      pesoPorCabeca: op.pesoporcabeca,
+      pesoTotal: op.pesototal,
+      arrobas: op.arrobas,
+      valorCompra: op.valorcompra,
+      valorVenda: op.valorvenda,
+      precoCompra: op.precocompra,
+      precoVenda: op.precovenda,
+      totalCompra: op.totalcompra,
+      totalVenda: op.totalvenda,
+      lucro: op.lucro,
+      margem: op.margem,
+      observacoes: op.observacoes,
+      criadoEm: op.criadoem,
+      // Campos transformados para o frontend
       arrobasTotal: op.arrobas,
-      valorCompraArroba: op.valorCompra || op.precoCompra,
-      valorVendaArroba: op.valorVenda || op.precoVenda
+      valorCompraArroba: op.valorcompra || op.precocompra,
+      valorVendaArroba: op.valorvenda || op.precovenda
     };
     
     res.json({ id: op.id, sucesso: true, operacao: operacaoTransformada });
