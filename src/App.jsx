@@ -377,8 +377,8 @@ function NovaOperacao({dados,onSalvo,onVoltar,isMobile}){
     }
     
     setSaving(true);
-    const clienteId = clientes.find(c=>c.nome===form.cliente)?.id||null;
-    const frigoId = frigorificos.find(f=>f.nome===form.frigorifico)?.id||null;
+    const clienteId = dados.clientes.find(c=>c.nome===form.cliente)?.id||null;
+    const frigoId = dados.frigorificos.find(f=>f.nome===form.frigorifico)?.id||null;
     
     console.log("📤 Salvando operação:", {clienteId, frigoId, cabecas, lucro});
     
