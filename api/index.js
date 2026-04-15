@@ -46,11 +46,16 @@ const autenticar = (req, res, next) => {
 
 // Inicializar banco de dados
 const initializeDB = async () => {
-  if (!pool) return;
+  if (!pool) {
+    console.error('❌ Pool não disponível');
+    return;
+  }
   
   try {
     const client = await pool.connect();
+    console.log('✅ Conectado ao PostgreSQL');
     
+    // Criar tabelas
     await client.query(`
       CREATE TABLE IF NOT EXISTS usuarios (
         id SERIAL PRIMARY KEY,
@@ -60,13 +65,36 @@ const initializeDB = async () => {
         resetKey TEXT,
         resetKeyExpiry BIGINT,
         criadoEm TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
+      )
+    `);
+    console.log('✅ Tabela usuarios criada/verificada');
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS clientes (
+        id SERIAL PRIMARY KEY,
+        nome TEXT UNIQUE NOT NULL,
+        contato TEXT,
+        criadoEm TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✅ Tabela clientes criada/verificada');
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS frigorificos (
+        id SERIAL PRIMARY KEY,
+        nome TEXT UNIQUE NOT NULL,
+        localizacao TEXT,
+        criadoEm TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✅ Tabela frigorificos criada/verificada');
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS operacoes (
         id SERIAL PRIMARY KEY,
         data TEXT,
-        cliente_id INTEGER,
-        frigorificos_id INTEGER,
+        cliente_id INTEGER REFERENCES clientes(id),
+        frigorificos_id INTEGER REFERENCES frigorificos(id),
         cabecas INTEGER,
         pesoPorCabeca REAL,
         pesoTotal REAL,
@@ -80,45 +108,36 @@ const initializeDB = async () => {
         lucro REAL,
         margem REAL,
         observacoes TEXT,
-        criadoEm TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (cliente_id) REFERENCES clientes(id),
-        FOREIGN KEY (frigorificos_id) REFERENCES frigorificos(id)
-      );
+        criadoEm TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✅ Tabela operacoes criada/verificada');
 
+    await client.query(`
       CREATE TABLE IF NOT EXISTS despesas (
         id SERIAL PRIMARY KEY,
-        operacao_id INTEGER NOT NULL,
+        operacao_id INTEGER NOT NULL REFERENCES operacoes(id),
         descricao TEXT NOT NULL,
         valor REAL NOT NULL,
-        criadoEm TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (operacao_id) REFERENCES operacoes(id)
-      );
-
-      CREATE TABLE IF NOT EXISTS clientes (
-        id SERIAL PRIMARY KEY,
-        nome TEXT UNIQUE NOT NULL,
-        contato TEXT,
         criadoEm TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-
-      CREATE TABLE IF NOT EXISTS frigorificos (
-        id SERIAL PRIMARY KEY,
-        nome TEXT UNIQUE NOT NULL,
-        localizacao TEXT,
-        criadoEm TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
+      )
     `);
+    console.log('✅ Tabela despesas criada/verificada');
 
-    // Seed admin
+    // Verificar se admin existe
     const result = await client.query('SELECT * FROM usuarios WHERE username = $1', ['admin']);
     if (result.rows.length === 0) {
       await client.query('INSERT INTO usuarios (username, senha) VALUES ($1, $2)', ['admin', hashSenha('gado@2024')]);
+      console.log('✅ Usuário admin criado');
+    } else {
+      console.log('✅ Usuário admin já existe');
     }
 
     client.release();
-    console.log('✅ Database inicializado com sucesso');
+    console.log('✅ Database inicializado com sucesso!');
   } catch (err) {
-    console.error('❌ Database initialization error:', err);
+    console.error('❌ Database initialization error:', err.message);
+    console.error(err.stack);
   }
 };
 
