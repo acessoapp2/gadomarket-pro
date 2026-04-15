@@ -26,7 +26,6 @@
     "client": "react-scripts start",
     "server": "node server.js"
   },
-  "proxy": "http://localhost:3001",
   "browserslist": {
     "production": [
       ">0.2%",
