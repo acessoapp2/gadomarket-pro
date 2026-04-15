@@ -352,7 +352,7 @@ function NovaOperacao({dados,onSalvo,onVoltar,isMobile}){
   const [salvo,setSalvo]=useState(false);
   const [tipoAdicao,setTipoAdicao]=useState("lote"); // "lote" ou "individual"
   const [animaisIndividuais,setAnimaisIndividuais]=useState([]);
-  const [novoAnimal,setNovoAnimal]=useState({sexo:"",peso:"",valor:""});
+  const [novoAnimal,setNovoAnimal]=useState({sexo:"",peso:""});
 
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   
@@ -373,9 +373,9 @@ function NovaOperacao({dados,onSalvo,onVoltar,isMobile}){
   const remDesp=i=>setDespesas(d=>d.filter((_,idx)=>idx!==i));
 
   const adicionarAnimal=()=>{
-    if(!novoAnimal.sexo||!novoAnimal.peso||!novoAnimal.valor) return;
+    if(!novoAnimal.sexo||!novoAnimal.peso) return;
     setAnimaisIndividuais([...animaisIndividuais,{...novoAnimal}]);
-    setNovoAnimal({sexo:"",peso:"",valor:""});
+    setNovoAnimal({sexo:"",peso:""});
   };
 
   const removerAnimal=i=>setAnimaisIndividuais(animaisIndividuais.filter((_,idx)=>idx!==i));
@@ -507,10 +507,9 @@ function NovaOperacao({dados,onSalvo,onVoltar,isMobile}){
           {tipoAdicao==="individual"&&(
             <div style={{background:C.card2,borderRadius:12,padding:16,border:`1px solid ${C.border}`,marginBottom:16}}>
               <div style={{fontSize:13,fontWeight:"bold",color:C.accent,marginBottom:12}}>Adicionar Cabeça Individual</div>
-              <div style={{display:"grid",gridTemplateColumns:tipoAdicao==="individual"?"1fr 1fr 1fr 1fr":"1fr",gap:8,marginBottom:12}}>
+              <div style={{display:"grid",gridTemplateColumns:tipoAdicao==="individual"?"1fr 1fr 1fr":"1fr",gap:8,marginBottom:12}}>
                 <Select label="Sexo" value={novoAnimal.sexo} onChange={v=>setNovoAnimal({...novoAnimal,sexo:v})} options={["Boi","Vaca"]}/>
                 <Input label="Peso" value={novoAnimal.peso} onChange={v=>setNovoAnimal({...novoAnimal,peso:v})} placeholder="kg" type="number" suffix="kg"/>
-                <Input label="Valor" value={novoAnimal.valor} onChange={v=>setNovoAnimal({...novoAnimal,valor:v})} placeholder="R$" type="number" prefix="R$"/>
                 <div style={{display:"flex",alignItems:"flex-end"}}><Btn onClick={adicionarAnimal} color={C.greenLight} style={{width:"100%"}}>+</Btn></div>
               </div>
               
@@ -520,7 +519,7 @@ function NovaOperacao({dados,onSalvo,onVoltar,isMobile}){
                   <div style={{fontSize:11,color:C.textMuted,marginBottom:8,fontWeight:"bold"}}>Animais Adicionados ({animaisIndividuais.length})</div>
                   {animaisIndividuais.map((a,i)=>(
                     <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:C.card,padding:"8px 12px",borderRadius:8,marginBottom:6,border:`1px solid ${C.border}`,fontSize:12}}>
-                      <span>{a.sexo==="Boi"?"🐂":"🐄"} {a.peso}kg · R$ {fmt(a.valor)}</span>
+                      <span>{a.sexo==="Boi"?"🐂":"🐄"} {a.peso}kg</span>
                       <button onClick={()=>removerAnimal(i)} style={{background:"none",border:"none",color:C.loss,cursor:"pointer",fontSize:14}}>✕</button>
                     </div>
                   ))}
