@@ -56,6 +56,7 @@ async function initDB() {
         data TEXT,
         cliente_id INTEGER,
         frigorificos_id INTEGER,
+        sexo TEXT,
         cabecas INTEGER,
         pesoPorCabeca REAL,
         pesoTotal REAL,

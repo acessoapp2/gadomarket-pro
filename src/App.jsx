@@ -389,6 +389,7 @@ function NovaOperacao({dados,onSalvo,onVoltar,isMobile}){
         data:new Date().toLocaleDateString("pt-BR"),
         cliente_id:clienteId,
         frigorificos_id:frigoId,
+        sexo:form.sexo,
         cabecas,
         pesoPorCabeca:pesoCab,
         pesoTotal,

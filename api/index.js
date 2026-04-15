@@ -102,6 +102,7 @@ const initializeDB = async (tentativa = 1) => {
         data TEXT,
         cliente_id INTEGER REFERENCES clientes(id),
         frigorificos_id INTEGER REFERENCES frigorificos(id),
+        sexo TEXT,
         cabecas INTEGER,
         pesoPorCabeca REAL,
         pesoTotal REAL,
@@ -369,15 +370,34 @@ app.post('/api/operacoes', autenticar, async (req, res) => {
       return res.status(500).json({ erro: 'Banco de dados não disponível' });
     }
     
-    console.log('📥 Recebendo nova operação:', req.body);
+    console.log('📥 Recebendo nova operação:', JSON.stringify(req.body, null, 2));
     
-    const { data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes } = req.body;
+    const { data, cliente_id, frigorificos_id, sexo, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes } = req.body;
     
-    console.log('🔍 Valores extraídos:');
+    console.log('🔍 Valores extraídos (ANTES de conversão):');
     console.log('  - pesoPorCabeca:', pesoPorCabeca, 'tipo:', typeof pesoPorCabeca);
     console.log('  - pesoTotal:', pesoTotal, 'tipo:', typeof pesoTotal);
     console.log('  - valorCompra:', valorCompra, 'tipo:', typeof valorCompra);
     console.log('  - valorVenda:', valorVenda, 'tipo:', typeof valorVenda);
+    
+    // Converter para números
+    const pesoPorCabecaNum = pesoPorCabeca ? parseFloat(pesoPorCabeca) : 0;
+    const pesoTotalNum = pesoTotal ? parseFloat(pesoTotal) : 0;
+    const arrobasNum = arrobas ? parseFloat(arrobas) : 0;
+    const valorCompraNum = valorCompra ? parseFloat(valorCompra) : 0;
+    const valorVendaNum = valorVenda ? parseFloat(valorVenda) : 0;
+    const precoCompraNum = precoCompra ? parseFloat(precoCompra) : 0;
+    const precoVendaNum = precoVenda ? parseFloat(precoVenda) : 0;
+    const totalCompraNum = totalCompra ? parseFloat(totalCompra) : 0;
+    const totalVendaNum = totalVenda ? parseFloat(totalVenda) : 0;
+    const lucroNum = lucro ? parseFloat(lucro) : 0;
+    const margemNum = margem ? parseFloat(margem) : 0;
+    
+    console.log('🔍 Valores extraídos (DEPOIS de conversão):');
+    console.log('  - pesoPorCabeca:', pesoPorCabecaNum, 'tipo:', typeof pesoPorCabecaNum);
+    console.log('  - pesoTotal:', pesoTotalNum, 'tipo:', typeof pesoTotalNum);
+    console.log('  - valorCompra:', valorCompraNum, 'tipo:', typeof valorCompraNum);
+    console.log('  - valorVenda:', valorVendaNum, 'tipo:', typeof valorVendaNum);
     
     // Validar campos obrigatórios
     if (!data || cliente_id === null || cabecas === null) {
@@ -386,10 +406,10 @@ app.post('/api/operacoes', autenticar, async (req, res) => {
     }
     
     const result = await pool.query(`
-      INSERT INTO operacoes (data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      INSERT INTO operacoes (data, cliente_id, frigorificos_id, sexo, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
       RETURNING *
-    `, [data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes]);
+    `, [data, cliente_id, frigorificos_id, sexo, cabecas, pesoPorCabecaNum, pesoTotalNum, arrobasNum, valorCompraNum, valorVendaNum, precoCompraNum, precoVendaNum, totalCompraNum, totalVendaNum, lucroNum, margemNum, observacoes]);
     
     const op = result.rows[0];
     console.log('✅ Operação inserida com ID:', op.id);
@@ -418,11 +438,24 @@ app.post('/api/operacoes', autenticar, async (req, res) => {
 app.put('/api/operacoes/:id', autenticar, async (req, res) => {
   try {
     const { id } = req.params;
-    const { data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes } = req.body;
+    const { data, cliente_id, frigorificos_id, sexo, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes } = req.body;
+    
+    // Converter para números
+    const pesoPorCabecaNum = pesoPorCabeca ? parseFloat(pesoPorCabeca) : 0;
+    const pesoTotalNum = pesoTotal ? parseFloat(pesoTotal) : 0;
+    const arrobasNum = arrobas ? parseFloat(arrobas) : 0;
+    const valorCompraNum = valorCompra ? parseFloat(valorCompra) : 0;
+    const valorVendaNum = valorVenda ? parseFloat(valorVenda) : 0;
+    const precoCompraNum = precoCompra ? parseFloat(precoCompra) : 0;
+    const precoVendaNum = precoVenda ? parseFloat(precoVenda) : 0;
+    const totalCompraNum = totalCompra ? parseFloat(totalCompra) : 0;
+    const totalVendaNum = totalVenda ? parseFloat(totalVenda) : 0;
+    const lucroNum = lucro ? parseFloat(lucro) : 0;
+    const margemNum = margem ? parseFloat(margem) : 0;
     
     await pool.query(`
-      UPDATE operacoes SET data=$1, cliente_id=$2, frigorificos_id=$3, cabecas=$4, pesoPorCabeca=$5, pesoTotal=$6, arrobas=$7, valorCompra=$8, valorVenda=$9, precoCompra=$10, precoVenda=$11, totalCompra=$12, totalVenda=$13, lucro=$14, margem=$15, observacoes=$16 WHERE id=$17
-    `, [data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes, id]);
+      UPDATE operacoes SET data=$1, cliente_id=$2, frigorificos_id=$3, sexo=$4, cabecas=$5, pesoPorCabeca=$6, pesoTotal=$7, arrobas=$8, valorCompra=$9, valorVenda=$10, precoCompra=$11, precoVenda=$12, totalCompra=$13, totalVenda=$14, lucro=$15, margem=$16, observacoes=$17 WHERE id=$18
+    `, [data, cliente_id, frigorificos_id, sexo, cabecas, pesoPorCabecaNum, pesoTotalNum, arrobasNum, valorCompraNum, valorVendaNum, precoCompraNum, precoVendaNum, totalCompraNum, totalVendaNum, lucroNum, margemNum, observacoes, id]);
     
     res.json({ sucesso: true });
   } catch (err) {
