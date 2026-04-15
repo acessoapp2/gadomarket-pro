@@ -32,7 +32,10 @@ const useIsMobile = () => {
 const getToken = ()=> localStorage.getItem("gm_token");
 const apiFetch = async (path, opts={}) => {
   try {
-    const res = await fetch(`/api${path}`,{
+    const apiUrl = process.env.REACT_APP_API_URL || '';
+    console.log(`🔄 Requisição: ${apiUrl}/api${path}`);
+    
+    const res = await fetch(`${apiUrl}/api${path}`,{
       ...opts,
       headers:{
         "Content-Type":"application/json",
@@ -41,6 +44,9 @@ const apiFetch = async (path, opts={}) => {
       },
       body: opts.body ? JSON.stringify(opts.body) : undefined,
     });
+    
+    console.log(`📬 Resposta ${path}: ${res.status}`);
+    
     if(res.status===401){
       console.warn("⚠️ Token inválido - fazendo logout");
       localStorage.removeItem("gm_token");
@@ -48,8 +54,25 @@ const apiFetch = async (path, opts={}) => {
       window.location.reload();
       return;
     }
-    const data = await res.json();
-    if(!res.ok) throw new Error(data.error || data.erro || "Erro na requisição");
+    
+    const text = await res.text();
+    console.log(`📄 Conteúdo bruto: ${text.substring(0, 100)}...`);
+    
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (parseErr) {
+      console.error(`❌ Erro ao fazer parse do JSON:`, parseErr);
+      console.error(`Conteúdo recebido:`, text);
+      throw new Error(`Resposta inválida (JSON parse error): ${text.substring(0, 100)}`);
+    }
+    
+    if(!res.ok) {
+      const errorMsg = data.error || data.erro || `HTTP ${res.status}`;
+      throw new Error(errorMsg);
+    }
+    
+    console.log(`✅ ${path} sucesso`);
     return data;
   } catch(err) {
     console.error(`❌ Erro em ${path}:`, err.message);
@@ -1152,13 +1175,22 @@ function MainApp({user,onLogout}){
 
   const fetchAll = useCallback(async()=>{
     try{
-      const [ops,clis,fris] = await Promise.all([
-        apiFetch("/operacoes"),
-        apiFetch("/clientes"),
-        apiFetch("/frigorificos"),
-      ]);
+      console.log("📥 Carregando operações...");
+      const ops = await apiFetch("/operacoes");
+      console.log("✅ Operações carregadas:", ops.length);
+      
+      console.log("📥 Carregando clientes...");
+      const clis = await apiFetch("/clientes");
+      console.log("✅ Clientes carregados:", clis.length);
+      
+      console.log("📥 Carregando frigorificos...");
+      const fris = await apiFetch("/frigorificos");
+      console.log("✅ Frigorificos carregados:", fris.length);
+      
       setDados({operacoes:ops,clientes:clis,frigorificos:fris});
+      console.log("✅ Todos os dados carregados com sucesso!");
     }catch(e){
+      console.error("❌ Erro ao carregar dados:", e);
       setError(e.message||"Erro ao carregar dados");
     }finally{
       setLoading(false);
