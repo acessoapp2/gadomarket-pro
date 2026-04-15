@@ -31,24 +31,30 @@ const useIsMobile = () => {
 // ─── API HELPER ───────────────────────────────────────────────────
 const getToken = ()=> localStorage.getItem("gm_token");
 const apiFetch = async (path, opts={}) => {
-  const res = await fetch(`/api${path}`,{
-    ...opts,
-    headers:{
-      "Content-Type":"application/json",
-      ...(getToken()?{Authorization:`Bearer ${getToken()}`}:{}),
-      ...opts.headers,
-    },
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-  });
-  if(res.status===401){
-    localStorage.removeItem("gm_token");
-    localStorage.removeItem("gm_user");
-    window.location.reload();
-    return;
+  try {
+    const res = await fetch(`/api${path}`,{
+      ...opts,
+      headers:{
+        "Content-Type":"application/json",
+        ...(getToken()?{Authorization:`Bearer ${getToken()}`}:{}),
+        ...opts.headers,
+      },
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    });
+    if(res.status===401){
+      console.warn("⚠️ Token inválido - fazendo logout");
+      localStorage.removeItem("gm_token");
+      localStorage.removeItem("gm_user");
+      window.location.reload();
+      return;
+    }
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || data.erro || "Erro na requisição");
+    return data;
+  } catch(err) {
+    console.error(`❌ Erro em ${path}:`, err.message);
+    throw err;
   }
-  const data = await res.json();
-  if(!res.ok) throw new Error(data.error||"Erro na requisição");
-  return data;
 };
 
 // ─── COMPONENTES BASE ─────────────────────────────────────────────
@@ -1185,10 +1191,16 @@ function MainApp({user,onLogout}){
 
   if(error) return(
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Georgia,serif",padding:20}}>
-      <div style={{background:C.card,borderRadius:20,padding:32,maxWidth:400,textAlign:"center",border:`1px solid ${C.border}`}}>
+      <div style={{background:C.card,borderRadius:20,padding:32,maxWidth:500,textAlign:"center",border:`1px solid ${C.border}`}}>
         <div style={{fontSize:48,marginBottom:16}}>⚠️</div>
-        <div style={{color:C.loss,fontSize:16,marginBottom:20}}>{error}</div>
-        <Btn onClick={()=>{setError("");setLoading(true);fetchAll();}}>Tentar novamente</Btn>
+        <div style={{color:C.loss,fontSize:16,marginBottom:8,fontWeight:"bold"}}>Erro ao carregar dados</div>
+        <div style={{color:C.textMuted,fontSize:13,marginBottom:20,whiteSpace:"pre-wrap",textAlign:"left",background:C.card2,padding:12,borderRadius:8,border:`1px solid ${C.border}`,maxHeight:150,overflowY:"auto"}}>
+          {error}
+        </div>
+        <div style={{display:"flex",gap:10}}>
+          <Btn onClick={()=>{setError("");setLoading(true);fetchAll();}} style={{flex:1}}>🔄 Tentar novamente</Btn>
+          <Btn onClick={onLogout} color={C.loss} style={{flex:1}}>🚪 Sair</Btn>
+        </div>
       </div>
     </div>
   );

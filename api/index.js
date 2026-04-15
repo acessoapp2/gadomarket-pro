@@ -218,15 +218,22 @@ app.get('/api/master-reset-key', autenticar, async (req, res) => {
 // CRUD Operações
 app.get('/api/operacoes', autenticar, async (req, res) => {
   try {
+    if (!pool) {
+      return res.status(500).json({ erro: 'Banco de dados não disponível' });
+    }
     const result = await pool.query('SELECT * FROM operacoes ORDER BY criadoEm DESC');
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ erro: err.message });
+    console.error('❌ Erro ao buscar operacoes:', err);
+    res.status(500).json({ erro: 'Erro ao buscar operações: ' + err.message });
   }
 });
 
 app.post('/api/operacoes', autenticar, async (req, res) => {
   try {
+    if (!pool) {
+      return res.status(500).json({ erro: 'Banco de dados não disponível' });
+    }
     const { data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes } = req.body;
     
     const result = await pool.query(`
@@ -237,7 +244,8 @@ app.post('/api/operacoes', autenticar, async (req, res) => {
     
     res.json({ id: result.rows[0].id, sucesso: true });
   } catch (err) {
-    res.status(500).json({ erro: err.message });
+    console.error('❌ Erro ao criar operacao:', err);
+    res.status(500).json({ erro: 'Erro ao criar operação: ' + err.message });
   }
 });
 
@@ -290,30 +298,42 @@ app.delete('/api/despesas/:id', autenticar, async (req, res) => {
 // Clientes
 app.get('/api/clientes', autenticar, async (req, res) => {
   try {
+    if (!pool) {
+      return res.status(500).json({ erro: 'Banco de dados não disponível' });
+    }
     const result = await pool.query('SELECT * FROM clientes ORDER BY nome');
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ erro: err.message });
+    console.error('❌ Erro ao buscar clientes:', err);
+    res.status(500).json({ erro: 'Erro ao buscar clientes: ' + err.message });
   }
 });
 
 app.post('/api/clientes', autenticar, async (req, res) => {
   try {
+    if (!pool) {
+      return res.status(500).json({ erro: 'Banco de dados não disponível' });
+    }
     const { nome, contato } = req.body;
     const result = await pool.query('INSERT INTO clientes (nome, contato) VALUES ($1, $2) RETURNING id', [nome, contato]);
     res.json({ id: result.rows[0].id, sucesso: true });
   } catch (err) {
-    res.status(500).json({ erro: err.message });
+    console.error('❌ Erro ao criar cliente:', err);
+    res.status(500).json({ erro: 'Erro ao criar cliente: ' + err.message });
   }
 });
 
 // Frigoríficos
 app.get('/api/frigorificos', autenticar, async (req, res) => {
   try {
+    if (!pool) {
+      return res.status(500).json({ erro: 'Banco de dados não disponível' });
+    }
     const result = await pool.query('SELECT * FROM frigorificos ORDER BY nome');
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ erro: err.message });
+    console.error('❌ Erro ao buscar frigorificos:', err);
+    res.status(500).json({ erro: 'Erro ao buscar frigorificos: ' + err.message });
   }
 });
 
