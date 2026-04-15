@@ -391,18 +391,24 @@ app.post('/api/operacoes', autenticar, async (req, res) => {
     console.log('  - valorCompra:', valorCompra, 'tipo:', typeof valorCompra);
     console.log('  - valorVenda:', valorVenda, 'tipo:', typeof valorVenda);
     
-    // Converter para números
-    const pesoPorCabecaNum = pesoPorCabeca ? parseFloat(pesoPorCabeca) : 0;
-    const pesoTotalNum = pesoTotal ? parseFloat(pesoTotal) : 0;
-    const arrobasNum = arrobas ? parseFloat(arrobas) : 0;
-    const valorCompraNum = valorCompra ? parseFloat(valorCompra) : 0;
-    const valorVendaNum = valorVenda ? parseFloat(valorVenda) : 0;
-    const precoCompraNum = precoCompra ? parseFloat(precoCompra) : 0;
-    const precoVendaNum = precoVenda ? parseFloat(precoVenda) : 0;
-    const totalCompraNum = totalCompra ? parseFloat(totalCompra) : 0;
-    const totalVendaNum = totalVenda ? parseFloat(totalVenda) : 0;
-    const lucroNum = lucro ? parseFloat(lucro) : 0;
-    const margemNum = margem ? parseFloat(margem) : 0;
+    // Converter valores com melhor tratamento
+    const toNumber = (val) => {
+      if (val === null || val === undefined || val === '') return 0;
+      const num = parseFloat(val);
+      return isNaN(num) ? 0 : num;
+    };
+    
+    const pesoPorCabecaNum = toNumber(pesoPorCabeca);
+    const pesoTotalNum = toNumber(pesoTotal);
+    const arrobasNum = toNumber(arrobas);
+    const valorCompraNum = toNumber(valorCompra);
+    const valorVendaNum = toNumber(valorVenda);
+    const precoCompraNum = toNumber(precoCompra);
+    const precoVendaNum = toNumber(precoVenda);
+    const totalCompraNum = toNumber(totalCompra);
+    const totalVendaNum = toNumber(totalVenda);
+    const lucroNum = toNumber(lucro);
+    const margemNum = toNumber(margem);
     
     console.log('🔍 Valores extraídos (DEPOIS de conversão):');
     console.log('  - pesoPorCabeca:', pesoPorCabecaNum, 'tipo:', typeof pesoPorCabecaNum);
@@ -453,18 +459,24 @@ app.put('/api/operacoes/:id', autenticar, async (req, res) => {
     const { id } = req.params;
     const { data, cliente_id, frigorificos_id, sexo, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes } = req.body;
     
-    // Converter para números
-    const pesoPorCabecaNum = pesoPorCabeca ? parseFloat(pesoPorCabeca) : 0;
-    const pesoTotalNum = pesoTotal ? parseFloat(pesoTotal) : 0;
-    const arrobasNum = arrobas ? parseFloat(arrobas) : 0;
-    const valorCompraNum = valorCompra ? parseFloat(valorCompra) : 0;
-    const valorVendaNum = valorVenda ? parseFloat(valorVenda) : 0;
-    const precoCompraNum = precoCompra ? parseFloat(precoCompra) : 0;
-    const precoVendaNum = precoVenda ? parseFloat(precoVenda) : 0;
-    const totalCompraNum = totalCompra ? parseFloat(totalCompra) : 0;
-    const totalVendaNum = totalVenda ? parseFloat(totalVenda) : 0;
-    const lucroNum = lucro ? parseFloat(lucro) : 0;
-    const margemNum = margem ? parseFloat(margem) : 0;
+    // Converter valores com melhor tratamento
+    const toNumber = (val) => {
+      if (val === null || val === undefined || val === '') return 0;
+      const num = parseFloat(val);
+      return isNaN(num) ? 0 : num;
+    };
+    
+    const pesoPorCabecaNum = toNumber(pesoPorCabeca);
+    const pesoTotalNum = toNumber(pesoTotal);
+    const arrobasNum = toNumber(arrobas);
+    const valorCompraNum = toNumber(valorCompra);
+    const valorVendaNum = toNumber(valorVenda);
+    const precoCompraNum = toNumber(precoCompra);
+    const precoVendaNum = toNumber(precoVenda);
+    const totalCompraNum = toNumber(totalCompra);
+    const totalVendaNum = toNumber(totalVenda);
+    const lucroNum = toNumber(lucro);
+    const margemNum = toNumber(margem);
     
     await pool.query(`
       UPDATE operacoes SET data=$1, cliente_id=$2, frigorificos_id=$3, sexo=$4, cabecas=$5, pesoPorCabeca=$6, pesoTotal=$7, arrobas=$8, valorCompra=$9, valorVenda=$10, precoCompra=$11, precoVenda=$12, totalCompra=$13, totalVenda=$14, lucro=$15, margem=$16, observacoes=$17 WHERE id=$18
