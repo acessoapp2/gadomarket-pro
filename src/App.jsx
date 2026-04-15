@@ -1286,6 +1286,7 @@ function MainApp({user,onLogout}){
 export default function App(){
   const [user,setUser]=useState(null);
   const [checking,setChecking]=useState(true);
+  const [sessionError,setSessionError]=useState("");
 
   useEffect(()=>{
     const token=localStorage.getItem("gm_token");
@@ -1294,9 +1295,12 @@ export default function App(){
       // Verifica se o token ainda é válido
       apiFetch("/me").then(data=>{
         setUser({token,username:data.username});
-      }).catch(()=>{
+        console.log("✅ Sessão validada:", data.username);
+      }).catch((err)=>{
+        console.error("❌ Erro ao validar sessão:", err.message);
         localStorage.removeItem("gm_token");
         localStorage.removeItem("gm_user");
+        setSessionError(err.message);
       }).finally(()=>setChecking(false));
     }else{
       setChecking(false);
@@ -1304,12 +1308,14 @@ export default function App(){
   },[]);
 
   const handleLogin=data=>{
+    console.log("✅ Login bem-sucedido:", data.username);
     localStorage.setItem("gm_token",data.token);
     localStorage.setItem("gm_user",data.username);
     setUser(data);
   };
 
   const handleLogout=()=>{
+    console.log("🚪 Logout");
     localStorage.removeItem("gm_token");
     localStorage.removeItem("gm_user");
     setUser(null);
@@ -1320,6 +1326,7 @@ export default function App(){
       <div style={{textAlign:"center",color:C.textMuted}}>
         <div style={{fontSize:56,marginBottom:12}}>🐂</div>
         <div>Verificando sessão...</div>
+        {sessionError&&<div style={{fontSize:12,color:C.loss,marginTop:12}}>Erro: {sessionError}</div>}
       </div>
     </div>
   );
