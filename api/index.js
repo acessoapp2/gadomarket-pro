@@ -409,6 +409,8 @@ app.post('/api/operacoes', autenticar, async (req, res) => {
     console.log('  - pesoTotal:', pesoTotalNum, 'tipo:', typeof pesoTotalNum);
     console.log('  - valorCompra:', valorCompraNum, 'tipo:', typeof valorCompraNum);
     console.log('  - valorVenda:', valorVendaNum, 'tipo:', typeof valorVendaNum);
+    console.log('  - totalCompra:', totalCompraNum);
+    console.log('  - totalVenda:', totalVendaNum);
     
     // Validar campos obrigatórios
     if (!data || cliente_id === null || cabecas === null) {

@@ -14,9 +14,13 @@ const C = {
 const fmt    = n => Number(n).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtInt = n => Number(n).toLocaleString("pt-BR");
 const fmtNum = n => {
-  if (n === null || n === undefined || n === '' || isNaN(n)) return '—';
+  // Se é null, undefined ou string vazia, retorna travessão
+  if (n === null || n === undefined || n === '') return '—';
   const num = Number(n);
-  return isNaN(num) ? '—' : num.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+  // Se após conversão é NaN, retorna travessão
+  if (isNaN(num)) return '—';
+  // Caso contrário, formata normalmente (incluindo 0)
+  return num.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
 };
 const inp = {
   width:"100%", background:C.card2, border:`1px solid ${C.border2}`,
@@ -383,11 +387,16 @@ function NovaOperacao({dados,onSalvo,onVoltar,isMobile}){
       return;
     }
     
+    if(!form.valorCompraArroba||!form.valorVendaArroba) {
+      alert("⚠️ Por favor preencha: Valor de Compra e Venda por Arroba");
+      return;
+    }
+    
     setSaving(true);
     const clienteId = dados.clientes.find(c=>c.nome===form.cliente)?.id||null;
     const frigoId = dados.frigorificos.find(f=>f.nome===form.frigorifico)?.id||null;
     
-    console.log("📤 Salvando operação:", {clienteId, frigoId, cabecas, lucro});
+    console.log("📤 Salvando operação:", {clienteId, frigoId, cabecas, compraArr, vendaArr, pesoCab, pesoTotal, arrobas, totalCompra, totalVenda, lucro});
     
     try{
       const payload = {
