@@ -20,11 +20,18 @@ let pool;
 if (DATABASE_URL) {
   pool = new Pool({
     connectionString: DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: false },
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
   });
   
   pool.on('error', (err) => {
     console.error('❌ Pool error:', err);
+  });
+  
+  pool.on('connect', () => {
+    console.log('✅ Conexão estabelecida com PostgreSQL');
   });
 } else {
   console.error('❌ DATABASE_URL NÃO CONFIGURADA!');
@@ -44,8 +51,8 @@ const autenticar = (req, res, next) => {
   }
 };
 
-// Inicializar banco de dados
-const initializeDB = async () => {
+// Inicializar banco de dados com retry
+const initializeDB = async (tentativa = 1) => {
   if (!pool) {
     console.error('❌ Pool não disponível');
     return;
@@ -136,8 +143,11 @@ const initializeDB = async () => {
     client.release();
     console.log('✅ Database inicializado com sucesso!');
   } catch (err) {
-    console.error('❌ Database initialization error:', err.message);
-    console.error(err.stack);
+    console.error(`❌ Erro na inicialização (tentativa ${tentativa}):`, err.message);
+    if (tentativa < 3) {
+      console.log(`⏳ Tentando novamente em 2 segundos...`);
+      setTimeout(() => initializeDB(tentativa + 1), 2000);
+    }
   }
 };
 
