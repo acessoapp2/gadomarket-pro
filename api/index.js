@@ -441,3 +441,4 @@ app.post('/api/frigorificos', autenticar, async (req, res) => {
 });
 
 module.exports = app;
+// Deploy timestamp: Wed Apr 15 07:32:51 -03 2026
