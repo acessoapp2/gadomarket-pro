@@ -121,6 +121,17 @@ const initializeDB = async (tentativa = 1) => {
     `);
     console.log('✅ Tabela operacoes criada/verificada');
 
+    // Migração: Adicionar coluna sexo se não existir
+    try {
+      await client.query(`
+        ALTER TABLE operacoes 
+        ADD COLUMN IF NOT EXISTS sexo TEXT
+      `);
+      console.log('✅ Coluna sexo adicionada/verificada');
+    } catch (err) {
+      console.log('⚠️ Coluna sexo já existe ou erro ao adicionar:', err.message);
+    }
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS despesas (
         id SERIAL PRIMARY KEY,
