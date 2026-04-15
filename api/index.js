@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
@@ -9,20 +10,19 @@ app.use(express.json());
 
 const MASTER_RESET_KEY = process.env.MASTER_RESET_KEY || 'GADO@RESET@2026';
 const JWT_SECRET = process.env.JWT_SECRET || 'gadomarket-jwt-secret-change-in-production';
+const DATABASE_URL = process.env.DATABASE_URL;
 
 const hashSenha = (senha) => crypto.createHash('sha256').update(senha).digest('hex');
 
-// In-memory database para Vercel (sem SQLite)
-const database = {
-  usuarios: [
-    { id: 1, username: 'admin', senha: hashSenha('gado@2024'), email: null, criadoEm: new Date().toISOString() }
-  ],
-  operacoes: [],
-  despesas: [],
-  clientes: [],
-  frigorificos: [],
-  nextIds: { operacoes: 1, despesas: 1, clientes: 1, frigorificos: 1 }
-};
+let pool;
+if (DATABASE_URL) {
+  pool = new Pool({
+    connectionString: DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  });
+} else {
+  console.warn('DATABASE_URL não configurada');
+}
 
 // Middleware de autenticação
 const autenticar = (req, res, next) => {
@@ -38,11 +38,92 @@ const autenticar = (req, res, next) => {
   }
 };
 
+// Inicializar banco de dados
+const initializeDB = async () => {
+  if (!pool) return;
+  
+  try {
+    const client = await pool.connect();
+    
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS usuarios (
+        id SERIAL PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        senha TEXT NOT NULL,
+        email TEXT,
+        resetKey TEXT,
+        resetKeyExpiry BIGINT,
+        criadoEm TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS operacoes (
+        id SERIAL PRIMARY KEY,
+        data TEXT,
+        cliente_id INTEGER,
+        frigorificos_id INTEGER,
+        cabecas INTEGER,
+        pesoPorCabeca REAL,
+        pesoTotal REAL,
+        arrobas REAL,
+        valorCompra REAL,
+        valorVenda REAL,
+        precoCompra REAL,
+        precoVenda REAL,
+        totalCompra REAL,
+        totalVenda REAL,
+        lucro REAL,
+        margem REAL,
+        observacoes TEXT,
+        criadoEm TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (cliente_id) REFERENCES clientes(id),
+        FOREIGN KEY (frigorificos_id) REFERENCES frigorificos(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS despesas (
+        id SERIAL PRIMARY KEY,
+        operacao_id INTEGER NOT NULL,
+        descricao TEXT NOT NULL,
+        valor REAL NOT NULL,
+        criadoEm TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (operacao_id) REFERENCES operacoes(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS clientes (
+        id SERIAL PRIMARY KEY,
+        nome TEXT UNIQUE NOT NULL,
+        contato TEXT,
+        criadoEm TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS frigorificos (
+        id SERIAL PRIMARY KEY,
+        nome TEXT UNIQUE NOT NULL,
+        localizacao TEXT,
+        criadoEm TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Seed admin
+    const result = await client.query('SELECT * FROM usuarios WHERE username = $1', ['admin']);
+    if (result.rows.length === 0) {
+      await client.query('INSERT INTO usuarios (username, senha) VALUES ($1, $2)', ['admin', hashSenha('gado@2024')]);
+    }
+
+    client.release();
+    console.log('✅ Database inicializado com sucesso');
+  } catch (err) {
+    console.error('❌ Database initialization error:', err);
+  }
+};
+
+initializeDB();
+
 // Login
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const usuario = database.usuarios.find(u => u.username === username);
+    const result = await pool.query('SELECT * FROM usuarios WHERE username = $1', [username]);
+    const usuario = result.rows[0];
     
     if (!usuario || usuario.senha !== hashSenha(password)) {
       return res.status(401).json({ erro: 'Usuário ou senha inválidos' });
@@ -56,7 +137,7 @@ app.post('/api/login', (req, res) => {
 });
 
 // Reset Master
-app.post('/api/resetar-senha-master', (req, res) => {
+app.post('/api/resetar-senha-master', async (req, res) => {
   try {
     const { username, masterKey, novaSenha } = req.body;
     
@@ -64,12 +145,14 @@ app.post('/api/resetar-senha-master', (req, res) => {
       return res.status(401).json({ erro: 'Código secreto inválido' });
     }
 
-    const usuario = database.usuarios.find(u => u.username === username);
+    const result = await pool.query('SELECT * FROM usuarios WHERE username = $1', [username]);
+    const usuario = result.rows[0];
+    
     if (!usuario) {
       return res.status(404).json({ erro: 'Usuário não encontrado' });
     }
 
-    usuario.senha = hashSenha(novaSenha);
+    await pool.query('UPDATE usuarios SET senha = $1 WHERE id = $2', [hashSenha(novaSenha), usuario.id]);
     res.json({ sucesso: true, mensagem: 'Senha alterada com sucesso' });
   } catch (err) {
     res.status(500).json({ erro: err.message });
@@ -77,7 +160,7 @@ app.post('/api/resetar-senha-master', (req, res) => {
 });
 
 // Master Reset Key (admin only)
-app.get('/api/master-reset-key', autenticar, (req, res) => {
+app.get('/api/master-reset-key', autenticar, async (req, res) => {
   try {
     if (req.usuario.username !== 'admin') {
       return res.status(403).json({ erro: 'Acesso negado' });
@@ -89,67 +172,50 @@ app.get('/api/master-reset-key', autenticar, (req, res) => {
 });
 
 // CRUD Operações
-app.get('/api/operacoes', autenticar, (req, res) => {
+app.get('/api/operacoes', autenticar, async (req, res) => {
   try {
-    const operacoes = database.operacoes.sort((a, b) => new Date(b.criadoEm) - new Date(a.criadoEm));
-    res.json(operacoes);
+    const result = await pool.query('SELECT * FROM operacoes ORDER BY criadoEm DESC');
+    res.json(result.rows);
   } catch (err) {
     res.status(500).json({ erro: err.message });
   }
 });
 
-app.post('/api/operacoes', autenticar, (req, res) => {
+app.post('/api/operacoes', autenticar, async (req, res) => {
   try {
     const { data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes } = req.body;
     
-    const newOp = {
-      id: database.nextIds.operacoes++,
-      data,
-      cliente_id,
-      frigorificos_id,
-      cabecas,
-      pesoPorCabeca,
-      pesoTotal,
-      arrobas,
-      valorCompra,
-      valorVenda,
-      precoCompra,
-      precoVenda,
-      totalCompra,
-      totalVenda,
-      lucro,
-      margem,
-      observacoes,
-      criadoEm: new Date().toISOString()
-    };
+    const result = await pool.query(`
+      INSERT INTO operacoes (data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      RETURNING id
+    `, [data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes]);
     
-    database.operacoes.push(newOp);
-    res.json({ id: newOp.id, sucesso: true });
+    res.json({ id: result.rows[0].id, sucesso: true });
   } catch (err) {
     res.status(500).json({ erro: err.message });
   }
 });
 
-app.put('/api/operacoes/:id', autenticar, (req, res) => {
+app.put('/api/operacoes/:id', autenticar, async (req, res) => {
   try {
     const { id } = req.params;
-    const index = database.operacoes.findIndex(o => o.id === parseInt(id));
+    const { data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes } = req.body;
     
-    if (index === -1) {
-      return res.status(404).json({ erro: 'Operação não encontrada' });
-    }
-
-    database.operacoes[index] = { ...database.operacoes[index], ...req.body };
+    await pool.query(`
+      UPDATE operacoes SET data=$1, cliente_id=$2, frigorificos_id=$3, cabecas=$4, pesoPorCabeca=$5, pesoTotal=$6, arrobas=$7, valorCompra=$8, valorVenda=$9, precoCompra=$10, precoVenda=$11, totalCompra=$12, totalVenda=$13, lucro=$14, margem=$15, observacoes=$16 WHERE id=$17
+    `, [data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes, id]);
+    
     res.json({ sucesso: true });
   } catch (err) {
     res.status(500).json({ erro: err.message });
   }
 });
 
-app.delete('/api/operacoes/:id', autenticar, (req, res) => {
+app.delete('/api/operacoes/:id', autenticar, async (req, res) => {
   try {
     const { id } = req.params;
-    database.operacoes = database.operacoes.filter(o => o.id !== parseInt(id));
+    await pool.query('DELETE FROM operacoes WHERE id=$1', [id]);
     res.json({ sucesso: true });
   } catch (err) {
     res.status(500).json({ erro: err.message });
@@ -157,28 +223,20 @@ app.delete('/api/operacoes/:id', autenticar, (req, res) => {
 });
 
 // Despesas
-app.post('/api/despesas', autenticar, (req, res) => {
+app.post('/api/despesas', autenticar, async (req, res) => {
   try {
     const { operacao_id, descricao, valor } = req.body;
-    const newDespesa = {
-      id: database.nextIds.despesas++,
-      operacao_id,
-      descricao,
-      valor,
-      criadoEm: new Date().toISOString()
-    };
-    
-    database.despesas.push(newDespesa);
-    res.json({ id: newDespesa.id, sucesso: true });
+    const result = await pool.query('INSERT INTO despesas (operacao_id, descricao, valor) VALUES ($1, $2, $3) RETURNING id', [operacao_id, descricao, valor]);
+    res.json({ id: result.rows[0].id, sucesso: true });
   } catch (err) {
     res.status(500).json({ erro: err.message });
   }
 });
 
-app.delete('/api/despesas/:id', autenticar, (req, res) => {
+app.delete('/api/despesas/:id', autenticar, async (req, res) => {
   try {
     const { id } = req.params;
-    database.despesas = database.despesas.filter(d => d.id !== parseInt(id));
+    await pool.query('DELETE FROM despesas WHERE id=$1', [id]);
     res.json({ sucesso: true });
   } catch (err) {
     res.status(500).json({ erro: err.message });
@@ -186,54 +244,40 @@ app.delete('/api/despesas/:id', autenticar, (req, res) => {
 });
 
 // Clientes
-app.get('/api/clientes', autenticar, (req, res) => {
+app.get('/api/clientes', autenticar, async (req, res) => {
   try {
-    const clientes = database.clientes.sort((a, b) => a.nome.localeCompare(b.nome));
-    res.json(clientes);
+    const result = await pool.query('SELECT * FROM clientes ORDER BY nome');
+    res.json(result.rows);
   } catch (err) {
     res.status(500).json({ erro: err.message });
   }
 });
 
-app.post('/api/clientes', autenticar, (req, res) => {
+app.post('/api/clientes', autenticar, async (req, res) => {
   try {
     const { nome, contato } = req.body;
-    const newCliente = {
-      id: database.nextIds.clientes++,
-      nome,
-      contato,
-      criadoEm: new Date().toISOString()
-    };
-    
-    database.clientes.push(newCliente);
-    res.json({ id: newCliente.id, sucesso: true });
+    const result = await pool.query('INSERT INTO clientes (nome, contato) VALUES ($1, $2) RETURNING id', [nome, contato]);
+    res.json({ id: result.rows[0].id, sucesso: true });
   } catch (err) {
     res.status(500).json({ erro: err.message });
   }
 });
 
 // Frigoríficos
-app.get('/api/frigorificos', autenticar, (req, res) => {
+app.get('/api/frigorificos', autenticar, async (req, res) => {
   try {
-    const frigorificos = database.frigorificos.sort((a, b) => a.nome.localeCompare(b.nome));
-    res.json(frigorificos);
+    const result = await pool.query('SELECT * FROM frigorificos ORDER BY nome');
+    res.json(result.rows);
   } catch (err) {
     res.status(500).json({ erro: err.message });
   }
 });
 
-app.post('/api/frigorificos', autenticar, (req, res) => {
+app.post('/api/frigorificos', autenticar, async (req, res) => {
   try {
     const { nome, localizacao } = req.body;
-    const newFrigo = {
-      id: database.nextIds.frigorificos++,
-      nome,
-      localizacao,
-      criadoEm: new Date().toISOString()
-    };
-    
-    database.frigorificos.push(newFrigo);
-    res.json({ id: newFrigo.id, sucesso: true });
+    const result = await pool.query('INSERT INTO frigorificos (nome, localizacao) VALUES ($1, $2) RETURNING id', [nome, localizacao]);
+    res.json({ id: result.rows[0].id, sucesso: true });
   } catch (err) {
     res.status(500).json({ erro: err.message });
   }
