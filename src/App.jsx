@@ -360,7 +360,7 @@ function NovaOperacao({dados,onSalvo,onVoltar,isMobile}){
   const cabecas=tipoAdicao==="individual"?animaisIndividuais.length:Number(form.cabecas)||0;
   const pesoCab=tipoAdicao==="individual"?(animaisIndividuais.length>0?animaisIndividuais.reduce((s,a)=>s+Number(a.peso||0),0)/animaisIndividuais.length:0):(Number(form.pesoPorCabeca)||0);
   const pesoTotal=tipoAdicao==="individual"?animaisIndividuais.reduce((s,a)=>s+Number(a.peso||0),0):cabecas*pesoCab;
-  const arrobas=parseFloat((pesoTotal/15).toFixed(2));
+  const arrobas=parseFloat((pesoTotal/30).toFixed(2));
   const compraArr=Number(form.valorCompraArroba)||0, vendaArr=Number(form.valorVendaArroba)||0;
   const totalCompra=parseFloat((arrobas*compraArr).toFixed(2));
   const totalVenda=parseFloat((arrobas*vendaArr).toFixed(2));
