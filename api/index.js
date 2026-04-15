@@ -144,13 +144,26 @@ const initializeDB = async (tentativa = 1) => {
     const clientesResult = await client.query('SELECT COUNT(*) as c FROM clientes');
     const clientesCount = parseInt(clientesResult.rows[0].c);
     if (clientesCount === 0) {
-      await client.query(`
-        INSERT INTO clientes (nome, contato) VALUES 
-        ('José Aparecido Silva', '(67) 99876-5432'),
-        ('Maria das Dores Ferreira', '(34) 98765-4321'),
-        ('Carlos Eduardo Nunes', '(65) 97654-3210')
-      `);
-      console.log('✅ Clientes seed criados (3 clientes)');
+      try {
+        await client.query(`
+          INSERT INTO clientes (nome, contato) VALUES 
+          ('José Aparecido Silva', '(67) 99876-5432')
+          ON CONFLICT (nome) DO NOTHING
+        `);
+        await client.query(`
+          INSERT INTO clientes (nome, contato) VALUES 
+          ('Maria das Dores Ferreira', '(34) 98765-4321')
+          ON CONFLICT (nome) DO NOTHING
+        `);
+        await client.query(`
+          INSERT INTO clientes (nome, contato) VALUES 
+          ('Carlos Eduardo Nunes', '(65) 97654-3210')
+          ON CONFLICT (nome) DO NOTHING
+        `);
+        console.log('✅ Clientes seed criados (3 clientes)');
+      } catch (err) {
+        console.error('⚠️ Erro ao criar clientes seed:', err.message);
+      }
     } else {
       console.log(`✅ Clientes já existem (${clientesCount})`);
     }
@@ -159,13 +172,26 @@ const initializeDB = async (tentativa = 1) => {
     const frigoResult = await client.query('SELECT COUNT(*) as c FROM frigorificos');
     const frigoCount = parseInt(frigoResult.rows[0].c);
     if (frigoCount === 0) {
-      await client.query(`
-        INSERT INTO frigorificos (nome, localizacao) VALUES 
-        ('JBS - Unidade Campo Grande', 'Campo Grande - MS'),
-        ('Minerva Foods', 'Barretos - SP'),
-        ('Marfrig', 'Promissão - SP')
-      `);
-      console.log('✅ Frigorificos seed criados (3 frigorificos)');
+      try {
+        await client.query(`
+          INSERT INTO frigorificos (nome, localizacao) VALUES 
+          ('JBS - Unidade Campo Grande', 'Campo Grande - MS')
+          ON CONFLICT (nome) DO NOTHING
+        `);
+        await client.query(`
+          INSERT INTO frigorificos (nome, localizacao) VALUES 
+          ('Minerva Foods', 'Barretos - SP')
+          ON CONFLICT (nome) DO NOTHING
+        `);
+        await client.query(`
+          INSERT INTO frigorificos (nome, localizacao) VALUES 
+          ('Marfrig', 'Promissão - SP')
+          ON CONFLICT (nome) DO NOTHING
+        `);
+        console.log('✅ Frigorificos seed criados (3 frigorificos)');
+      } catch (err) {
+        console.error('⚠️ Erro ao criar frigorificos seed:', err.message);
+      }
     } else {
       console.log(`✅ Frigorificos já existem (${frigoCount})`);
     }
