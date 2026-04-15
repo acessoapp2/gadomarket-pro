@@ -12,6 +12,8 @@ const MASTER_RESET_KEY = process.env.MASTER_RESET_KEY || 'GADO@RESET@2026';
 const JWT_SECRET = process.env.JWT_SECRET || 'gadomarket-jwt-secret-change-in-production';
 const DATABASE_URL = process.env.DATABASE_URL;
 
+console.log('🔌 DATABASE_URL configurada:', !!DATABASE_URL);
+
 const hashSenha = (senha) => crypto.createHash('sha256').update(senha).digest('hex');
 
 let pool;
@@ -20,8 +22,12 @@ if (DATABASE_URL) {
     connectionString: DATABASE_URL,
     ssl: { rejectUnauthorized: false }
   });
+  
+  pool.on('error', (err) => {
+    console.error('❌ Pool error:', err);
+  });
 } else {
-  console.warn('DATABASE_URL não configurada');
+  console.error('❌ DATABASE_URL NÃO CONFIGURADA!');
 }
 
 // Middleware de autenticação
@@ -118,9 +124,22 @@ const initializeDB = async () => {
 
 initializeDB();
 
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok',
+    database: pool ? 'conectado' : 'desconectado',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Login
 app.post('/api/login', async (req, res) => {
   try {
+    if (!pool) {
+      return res.status(500).json({ erro: 'Banco de dados não disponível' });
+    }
+    
     const { username, password } = req.body;
     const result = await pool.query('SELECT * FROM usuarios WHERE username = $1', [username]);
     const usuario = result.rows[0];
@@ -132,7 +151,8 @@ app.post('/api/login', async (req, res) => {
     const token = jwt.sign({ id: usuario.id, username: usuario.username }, JWT_SECRET, { expiresIn: '30d' });
     res.json({ token, usuario: { id: usuario.id, username: usuario.username } });
   } catch (err) {
-    res.status(500).json({ erro: err.message });
+    console.error('❌ Login error:', err);
+    res.status(500).json({ erro: 'Erro no login: ' + err.message });
   }
 });
 
