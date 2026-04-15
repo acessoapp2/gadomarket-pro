@@ -132,6 +132,22 @@ const initializeDB = async (tentativa = 1) => {
       console.log('⚠️ Coluna sexo já existe ou erro ao adicionar:', err.message);
     }
 
+    // Verificar colunas da tabela operacoes
+    try {
+      const colunas = await client.query(`
+        SELECT column_name, data_type, is_nullable 
+        FROM information_schema.columns 
+        WHERE table_name = 'operacoes'
+        ORDER BY ordinal_position
+      `);
+      console.log('📋 Colunas da tabela operacoes:');
+      colunas.rows.forEach(col => {
+        console.log(`  - ${col.column_name} (${col.data_type}) nullable: ${col.is_nullable}`);
+      });
+    } catch (err) {
+      console.log('⚠️ Erro ao verificar colunas:', err.message);
+    }
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS despesas (
         id SERIAL PRIMARY KEY,
@@ -433,6 +449,10 @@ app.post('/api/operacoes', autenticar, async (req, res) => {
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
       RETURNING *
     `, [data, cliente_id, frigorificos_id, sexo, cabecas, pesoPorCabecaNum, pesoTotalNum, arrobasNum, valorCompraNum, valorVendaNum, precoCompraNum, precoVendaNum, totalCompraNum, totalVendaNum, lucroNum, margemNum, observacoes]);
+    
+    // Verificar imediatamente o que foi salvo
+    const verificacao = await pool.query('SELECT * FROM operacoes WHERE id = $1', [result.rows[0].id]);
+    console.log('✅ Verificação do que foi de fato salvo no BD:', JSON.stringify(verificacao.rows[0], null, 2));
     
     const op = result.rows[0];
     console.log('✅ Operação inserida com ID:', op.id);
