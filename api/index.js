@@ -347,7 +347,16 @@ app.get('/api/operacoes', autenticar, async (req, res) => {
       return res.status(500).json({ erro: 'Banco de dados não disponível' });
     }
     const result = await pool.query('SELECT * FROM operacoes ORDER BY criadoEm DESC');
-    res.json(result.rows);
+    
+    // Transformar field names para as que o frontend espera
+    const operacoes = result.rows.map(op => ({
+      ...op,
+      arrobasTotal: op.arrobas,
+      valorCompraArroba: op.valorCompra || op.precoCompra,
+      valorVendaArroba: op.valorVenda || op.precoVenda
+    }));
+    
+    res.json(operacoes);
   } catch (err) {
     console.error('❌ Erro ao buscar operacoes:', err);
     res.status(500).json({ erro: 'Erro ao buscar operações: ' + err.message });
@@ -373,11 +382,21 @@ app.post('/api/operacoes', autenticar, async (req, res) => {
     const result = await pool.query(`
       INSERT INTO operacoes (data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-      RETURNING id
+      RETURNING *
     `, [data, cliente_id, frigorificos_id, cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompra, valorVenda, precoCompra, precoVenda, totalCompra, totalVenda, lucro, margem, observacoes]);
     
-    console.log('✅ Operação inserida com ID:', result.rows[0].id);
-    res.json({ id: result.rows[0].id, sucesso: true });
+    const op = result.rows[0];
+    console.log('✅ Operação inserida com ID:', op.id);
+    
+    // Transformar field names para as que o frontend espera
+    const operacaoTransformada = {
+      ...op,
+      arrobasTotal: op.arrobas,
+      valorCompraArroba: op.valorCompra || op.precoCompra,
+      valorVendaArroba: op.valorVenda || op.precoVenda
+    };
+    
+    res.json({ id: op.id, sucesso: true, operacao: operacaoTransformada });
   } catch (err) {
     console.error('❌ Erro ao criar operacao:', err.message);
     console.error('Stack:', err.stack);
