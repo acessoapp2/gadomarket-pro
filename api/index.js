@@ -586,9 +586,16 @@ app.patch('/api/operacoes/:id', autenticar, async (req, res) => {
 app.delete('/api/operacoes/:id', autenticar, async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Primeiro deletar todas as despesas associadas
+    await pool.query('DELETE FROM despesas WHERE operacao_id=$1', [id]);
+    
+    // Depois deletar a operação
     await pool.query('DELETE FROM operacoes WHERE id=$1', [id]);
+    
     res.json({ sucesso: true });
   } catch (err) {
+    console.error('❌ Erro ao deletar operação:', err);
     res.status(500).json({ erro: err.message });
   }
 });
