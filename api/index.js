@@ -386,8 +386,22 @@ app.get('/api/operacoes', autenticar, async (req, res) => {
       // Campos transformados para o frontend
       arrobasTotal: op.arrobas,
       valorCompraArroba: op.valorcompra || op.precocompra,
-      valorVendaArroba: op.valorvenda || op.precovenda
+      valorVendaArroba: op.valorvenda || op.precovenda,
+      despesas: [],
+      totalDespesas: 0
     }));
+    
+    // Buscar despesas para cada operação
+    for (let op of operacoes) {
+      const despResult = await pool.query('SELECT * FROM despesas WHERE operacao_id = $1', [op.id]);
+      op.despesas = despResult.rows.map(d => ({
+        id: d.id,
+        operacao_id: d.operacao_id,
+        descricao: d.descricao,
+        valor: d.valor
+      }));
+      op.totalDespesas = op.despesas.reduce((sum, d) => sum + (d.valor || 0), 0);
+    }
     
     console.log('📤 Operação normalizada:', JSON.stringify(operacoes[0], null, 2));
     
@@ -525,6 +539,22 @@ app.put('/api/operacoes/:id', autenticar, async (req, res) => {
     await pool.query(`
       UPDATE operacoes SET data=$1, cliente_id=$2, frigorificos_id=$3, sexo=$4, cabecas=$5, pesoPorCabeca=$6, pesoTotal=$7, arrobas=$8, valorCompra=$9, valorVenda=$10, precoCompra=$11, precoVenda=$12, totalCompra=$13, totalVenda=$14, lucro=$15, margem=$16, observacoes=$17 WHERE id=$18
     `, [data, cliente_id, frigorificos_id, sexo, cabecas, pesoPorCabecaNum, pesoTotalNum, arrobasNum, valorCompraNum, valorVendaNum, precoCompraNum, precoVendaNum, totalCompraNum, totalVendaNum, lucroNum, margemNum, observacoes, id]);
+    
+    res.json({ sucesso: true });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+app.patch('/api/operacoes/:id', autenticar, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { lucro } = req.body;
+    
+    if (lucro !== undefined) {
+      const lucroNum = parseFloat(lucro) || 0;
+      await pool.query('UPDATE operacoes SET lucro = $1 WHERE id = $2', [lucroNum, id]);
+    }
     
     res.json({ sucesso: true });
   } catch (err) {

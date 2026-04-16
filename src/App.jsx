@@ -424,6 +424,33 @@ function NovaOperacao({dados,onSalvo,onVoltar,isMobile}){
       const resultado = await apiFetch("/operacoes",{method:"POST",body:payload});
       
       console.log("✅ Operação salva com sucesso:", resultado);
+      
+      // Salvar despesas da operação
+      const despesasParaSalvar = despesas.filter(d => d.descricao && d.valor);
+      for(let desp of despesasParaSalvar) {
+        await apiFetch("/despesas",{
+          method:"POST",
+          body:{
+            operacao_id:resultado.id,
+            descricao:desp.descricao,
+            valor:Number(desp.valor)||0
+          }
+        });
+      }
+      
+      // Recalcular lucro com despesas
+      const totalDespesasNum = despesasParaSalvar.reduce((sum,d)=>sum+(Number(d.valor)||0),0);
+      const lucroComDespesas = totalVenda - totalCompra - totalDespesasNum;
+      
+      // Atualizar lucro na operação
+      if(totalDespesasNum > 0) {
+        await apiFetch(`/operacoes/${resultado.id}`,{
+          method:"PATCH",
+          body:{lucro:lucroComDespesas}
+        });
+      }
+      
+      console.log("✅ Despesas salvas com sucesso");
       setSalvo(true);
       await onSalvo();
       setTimeout(()=>{setSalvo(false);onVoltar();},1800);
