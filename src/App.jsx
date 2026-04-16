@@ -222,9 +222,14 @@ function LoginPage({onLogin}){
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"Georgia,serif"}}>
       <div style={{background:C.card,borderRadius:24,padding:"40px 36px",width:"100%",maxWidth:400,border:`1px solid ${C.border}`,boxShadow:"0 24px 60px rgba(0,0,0,0.6)"}}>
         <div style={{textAlign:"center",marginBottom:32}}>
-          <div style={{fontSize:72,marginBottom:12}}>🐂</div>
-          <div style={{fontSize:28,fontWeight:"bold",color:C.accent,letterSpacing:1}}>GadoMarket Pro</div>
-          <div style={{fontSize:11,color:C.textMuted,letterSpacing:2,textTransform:"uppercase",marginTop:6}}>Gestão de Compra e Venda</div>
+          <div style={{display:"flex",justifyContent:"center",marginBottom:16}}>
+            <img
+              src={process.env.PUBLIC_URL+"/logo.png"}
+              alt="Compra e Venda de Bovinos"
+              style={{width:180,height:180,objectFit:"contain",background:"#ffffff",borderRadius:20,padding:8,boxShadow:"0 8px 32px rgba(0,0,0,0.4)"}}
+            />
+          </div>
+          <div style={{fontSize:18,fontWeight:"bold",color:C.accent,letterSpacing:2,textTransform:"uppercase"}}>Compra e Venda de Bovinos</div>
         </div>
 
         {modo==="login" && (
@@ -277,7 +282,7 @@ function LoginPage({onLogin}){
         )}
 
         <div style={{textAlign:"center",marginTop:24,fontSize:11,color:C.textMuted,borderTop:`1px solid ${C.border}`,paddingTop:20}}>
-          GadoMarket Pro v2.0 • Acesso seguro com JWT
+          Compra e Venda de Bovinos • Acesso seguro com JWT
         </div>
       </div>
     </div>
@@ -296,8 +301,17 @@ function Sidebar({aba,setAba,novaOp,setNovaOp,user,onLogout}){
   return(
     <div style={{width:260,minHeight:"100vh",background:C.sidebar,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",overflow:"auto",flexShrink:0}}>
       <div style={{padding:"24px 20px 18px",borderBottom:`1px solid ${C.border}`}}>
-        <div style={{fontSize:22,fontWeight:"bold",color:C.accent,fontFamily:"Georgia,serif",letterSpacing:1}}>🐂 GadoMarket</div>
-        <div style={{fontSize:10,color:C.textMuted,letterSpacing:2,textTransform:"uppercase",marginTop:4}}>Gestão Pecuária Pro</div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <img
+            src={process.env.PUBLIC_URL+"/logo.png"}
+            alt="Logo"
+            style={{width:44,height:44,objectFit:"contain",background:"#fff",borderRadius:10,padding:3,flexShrink:0}}
+          />
+          <div>
+            <div style={{fontSize:13,fontWeight:"bold",color:C.accent,fontFamily:"Georgia,serif",letterSpacing:0.5,textTransform:"uppercase"}}>Compra e Venda</div>
+            <div style={{fontSize:9,color:C.textMuted,letterSpacing:2,textTransform:"uppercase",marginTop:2}}>de Bovinos</div>
+          </div>
+        </div>
       </div>
 
       <div style={{padding:"16px 14px 8px"}}>
@@ -1566,8 +1580,17 @@ function MainApp({user,onLogout}){
           <div style={{background:"linear-gradient(135deg,#0f2009,#1a3a10)",padding:"16px 18px 12px",position:"sticky",top:0,zIndex:200,borderBottom:`2px solid ${C.green}`,boxShadow:"0 4px 24px rgba(0,0,0,0.6)"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <div>
-                <div style={{fontSize:20,fontWeight:"bold",color:C.accent,letterSpacing:1}}>🐂 GadoMarket Pro</div>
-                <div style={{fontSize:10,color:C.textMuted,letterSpacing:2,textTransform:"uppercase",marginTop:1}}>Gestão de Compra e Venda</div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <img
+                    src={process.env.PUBLIC_URL+"/logo.png"}
+                    alt="Logo"
+                    style={{width:34,height:34,objectFit:"contain",background:"#fff",borderRadius:8,padding:2,flexShrink:0}}
+                  />
+                  <div>
+                    <div style={{fontSize:14,fontWeight:"bold",color:C.accent,letterSpacing:0.5,textTransform:"uppercase"}}>Compra e Venda</div>
+                    <div style={{fontSize:9,color:C.textMuted,letterSpacing:2,textTransform:"uppercase",marginTop:1}}>de Bovinos</div>
+                  </div>
+                </div>
               </div>
               {!novaOp
                 ?<button onClick={()=>setNovaOp(true)} style={{background:`linear-gradient(135deg,${C.green},${C.greenLight})`,border:"none",borderRadius:12,padding:"10px 14px",color:"#fff",fontSize:12,cursor:"pointer",fontFamily:"Georgia,serif",fontWeight:"bold"}}>+ Nova Op.</button>
