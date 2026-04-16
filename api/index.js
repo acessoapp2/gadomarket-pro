@@ -132,16 +132,37 @@ const initializeDB = async (tentativa = 1) => {
       console.log('⚠️ Coluna sexo já existe ou erro ao adicionar:', err.message);
     }
 
+    // Tentar adicionar ON DELETE CASCADE à constraint existente
+    try {
+      await client.query(`
+        ALTER TABLE despesas DROP CONSTRAINT IF EXISTS despesas_operacao_id_fkey
+      `);
+      console.log('✅ Constraint antiga removida');
+    } catch (err) {
+      console.log('⚠️ Constraint não existia:', err.message);
+    }
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS despesas (
         id SERIAL PRIMARY KEY,
-        operacao_id INTEGER NOT NULL REFERENCES operacoes(id),
+        operacao_id INTEGER NOT NULL REFERENCES operacoes(id) ON DELETE CASCADE,
         descricao TEXT NOT NULL,
         valor REAL NOT NULL,
         criadoEm TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('✅ Tabela despesas criada/verificada');
+
+    // Adicionar constraint ON DELETE CASCADE se a tabela já existia
+    try {
+      await client.query(`
+        ALTER TABLE despesas ADD CONSTRAINT despesas_operacao_id_fkey 
+        FOREIGN KEY (operacao_id) REFERENCES operacoes(id) ON DELETE CASCADE
+      `);
+      console.log('✅ Constraint ON DELETE CASCADE adicionada');
+    } catch (err) {
+      console.log('⚠️ Constraint já existe:', err.message);
+    }
 
     // Verificar se admin existe
     const result = await client.query('SELECT * FROM usuarios WHERE username = $1', ['admin']);
