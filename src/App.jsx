@@ -393,64 +393,28 @@ function NovaOperacao({dados,onSalvo,onVoltar,isMobile}){
     }
     
     setSaving(true);
-    const clienteId = dados.clientes.find(c=>c.nome===form.cliente)?.id||null;
-    const frigoId = dados.frigorificos.find(f=>f.nome===form.frigorifico)?.id||null;
-    
-    console.log("📤 Salvando operação:", {clienteId, frigoId, cabecas, compraArr, vendaArr, pesoCab, pesoTotal, arrobas, totalCompra, totalVenda, lucro});
-    
     try{
+      const despesasParaSalvar = despesas.filter(d => d.descricao);
       const payload = {
-        data:new Date().toLocaleDateString("pt-BR"),
-        cliente_id:clienteId,
-        frigorificos_id:frigoId,
-        sexo:form.sexo,
+        data: new Date().toLocaleDateString("pt-BR"),
+        cliente: form.cliente,
+        frigorifico: form.frigorifico || "",
+        sexo: form.sexo,
         cabecas,
-        pesoPorCabeca:pesoCab,
+        pesoPorCabeca: pesoCab,
         pesoTotal,
-        arrobas,
-        valorCompra:compraArr,
-        valorVenda:vendaArr,
-        precoCompra:compraArr,
-        precoVenda:vendaArr,
+        arrobasTotal: arrobas,
+        valorCompraArroba: compraArr,
+        valorVendaArroba: vendaArr,
         totalCompra,
         totalVenda,
+        totalDespesas: totalDesp,
         lucro,
-        margem,
-        observacoes:form.observacoes||""
+        status: "Concluída",
+        despesas: despesasParaSalvar.map(d => ({descricao: d.descricao, valor: Number(d.valor) || 0})),
       };
-      
-      console.log("📨 Payload:", payload);
-      
-      const resultado = await apiFetch("/operacoes",{method:"POST",body:payload});
-      
-      console.log("✅ Operação salva com sucesso:", resultado);
-      
-      // Salvar despesas da operação
-      const despesasParaSalvar = despesas.filter(d => d.descricao && d.valor);
-      for(let desp of despesasParaSalvar) {
-        await apiFetch("/despesas",{
-          method:"POST",
-          body:{
-            operacao_id:resultado.id,
-            descricao:desp.descricao,
-            valor:Number(desp.valor)||0
-          }
-        });
-      }
-      
-      // Recalcular lucro com despesas
-      const totalDespesasNum = despesasParaSalvar.reduce((sum,d)=>sum+(Number(d.valor)||0),0);
-      const lucroComDespesas = totalVenda - totalCompra - totalDespesasNum;
-      
-      // Atualizar lucro na operação
-      if(totalDespesasNum > 0) {
-        await apiFetch(`/operacoes/${resultado.id}`,{
-          method:"PATCH",
-          body:{lucro:lucroComDespesas}
-        });
-      }
-      
-      console.log("✅ Despesas salvas com sucesso");
+
+      await apiFetch("/operacoes", {method:"POST", body:payload});
       setSalvo(true);
       await onSalvo();
       setTimeout(()=>{setSalvo(false);onVoltar();},1800);
@@ -620,8 +584,19 @@ function NovaOperacao({dados,onSalvo,onVoltar,isMobile}){
                   <div style={{fontSize:12,color:C.textSecondary,fontWeight:"bold"}}>Despesa {i+1}</div>
                   {despesas.length>1&&<button onClick={()=>remDesp(i)} style={{background:"none",border:"none",color:C.loss,fontSize:18,cursor:"pointer"}}>✕</button>}
                 </div>
-                <Select value={d.descricao} onChange={v=>setDesp(i,"descricao",v)}
-                  options={["Frete","Medicamentos","Alimentação","Comissão","Pedágio","Estadias","Mão de obra","Vacinas","Exames","Outros"]}/>
+                <div style={{marginBottom:14}}>
+                  <input
+                    list={`desp-opts-${i}`}
+                    value={d.descricao}
+                    onChange={e=>setDesp(i,"descricao",e.target.value)}
+                    placeholder="Ex: Frete, Medicamentos..."
+                    style={{...inp}}/>
+                  <datalist id={`desp-opts-${i}`}>
+                    {["Frete","Medicamentos","Alimentação","Comissão","Pedágio","Estadias","Mão de obra","Vacinas","Exames","Outros"].map(o=>(
+                      <option key={o} value={o}/>
+                    ))}
+                  </datalist>
+                </div>
                 <Input value={d.valor} onChange={v=>setDesp(i,"valor",v)} placeholder="0,00" type="number" prefix="R$"/>
               </div>
             ))}
@@ -676,8 +651,8 @@ function Operacoes({dados,onRefresh,isMobile}){
   const [deleting,setDeleting]=useState(false);
 
   // Helper para resolver nomes a partir de IDs
-  const getClienteNome = (op) => op.cliente || (dados.clientes.find(c=>c.id===op.cliente_id)?.nome || "Desconhecido");
-  const getFrigoNome = (op) => op.frigorifico || (dados.frigorificos.find(f=>f.id===op.frigorificos_id)?.nome || "Desconhecido");
+  const getClienteNome = (op) => op.cliente || dados.clientes.find(c=>c.id===op.cliente_id)?.nome || "Desconhecido";
+  const getFrigoNome = (op) => op.frigorifico || dados.frigorificos.find(f=>f.id===op.frigorificos_id)?.nome || "";
 
   const lista=dados.operacoes.filter(o=>{
     const clienteNome = getClienteNome(o);
@@ -723,11 +698,16 @@ function Operacoes({dados,onRefresh,isMobile}){
   const abrirEdicao = (op) => {
     setEditForm({
       id: op.id,
+      data: op.data,
+      status: op.status || 'Concluída',
+      sexo: op.sexo,
+      cliente: op.cliente || getClienteNome(op),
+      frigorifico: op.frigorifico || "",
       cabecas: op.cabecas,
       pesoPorCabeca: op.pesoPorCabeca,
       valorCompraArroba: op.valorCompraArroba,
       valorVendaArroba: op.valorVendaArroba,
-      despesas: op.despesas || []
+      despesas: (op.despesas || []).map(d => ({...d}))
     });
     setEditando(true);
   };
@@ -745,7 +725,7 @@ function Operacoes({dados,onRefresh,isMobile}){
     const lucro = parseFloat((totalVenda - totalCompra - totalDesp).toFixed(2));
     const margem = totalVenda > 0 ? ((lucro / totalVenda) * 100).toFixed(1) : 0;
     
-    return { pesoTotal, arrobas, totalCompra, totalVenda, lucro, margem };
+    return { pesoTotal, arrobas, totalCompra, totalVenda, totalDesp, lucro, margem };
   };
 
   const salvarEdicao = async () => {
@@ -753,31 +733,33 @@ function Operacoes({dados,onRefresh,isMobile}){
     setSalvando(true);
     try {
       const valores = calcularValores(editForm);
+      const despesasValidas = editForm.despesas.filter(d => d.descricao);
       const payload = {
+        data: editForm.data,
+        status: editForm.status,
+        sexo: editForm.sexo,
+        cliente: editForm.cliente,
+        frigorifico: editForm.frigorifico,
         cabecas: Number(editForm.cabecas),
         pesoPorCabeca: Number(editForm.pesoPorCabeca),
         pesoTotal: valores.pesoTotal,
-        arrobas: valores.arrobas,
+        arrobasTotal: valores.arrobas,
         valorCompraArroba: Number(editForm.valorCompraArroba),
         valorVendaArroba: Number(editForm.valorVendaArroba),
         totalCompra: valores.totalCompra,
         totalVenda: valores.totalVenda,
+        totalDespesas: valores.totalDesp,
         lucro: valores.lucro,
-        margem: valores.margem,
-        precoCompra: Number(editForm.valorCompraArroba),
-        precoVenda: Number(editForm.valorVendaArroba),
-        valorCompra: Number(editForm.valorCompraArroba),
-        valorVenda: Number(editForm.valorVendaArroba)
+        despesas: despesasValidas,
       };
 
       await apiFetch(`/operacoes/${editForm.id}`, { method: 'PUT', body: payload });
-      
-      // Atualizar detalhe local
-      const detalhAtualizado = {
+
+      setDetalhe({
         ...detalhe,
-        ...payload
-      };
-      setDetalhe(detalhAtualizado);
+        ...payload,
+        despesas: despesasValidas,
+      });
       setEditando(false);
       await onRefresh();
     } catch (e) {
@@ -894,57 +876,144 @@ function Operacoes({dados,onRefresh,isMobile}){
       {detalhe && editForm && editando ? (
         <Modal title="Editar Operação" onClose={() => setEditando(false)}>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div>
-              <label style={{fontSize:12,color:C.textMuted,fontWeight:"bold"}}>Cabeças</label>
-              <input type="number" value={editForm.cabecas} 
-                onChange={(e) => {
-                  const val = Number(e.target.value) || 0;
-                  setEditForm({...editForm, cabecas: val});
-                }}
-                style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.textPrimary,fontFamily:"Georgia,serif",fontSize:14}}/>
-            </div>
-            
-            <div>
-              <label style={{fontSize:12,color:C.textMuted,fontWeight:"bold"}}>Peso por Cabeça (kg)</label>
-              <input type="number" step="0.01" value={editForm.pesoPorCabeca} 
-                onChange={(e) => {
-                  const val = Number(e.target.value) || 0;
-                  setEditForm({...editForm, pesoPorCabeca: val});
-                }}
-                style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.textPrimary,fontFamily:"Georgia,serif",fontSize:14}}/>
-            </div>
-            
-            <div>
-              <label style={{fontSize:12,color:C.textMuted,fontWeight:"bold"}}>Valor Compra/@</label>
-              <input type="number" step="0.01" value={editForm.valorCompraArroba} 
-                onChange={(e) => {
-                  const val = Number(e.target.value) || 0;
-                  setEditForm({...editForm, valorCompraArroba: val});
-                }}
-                style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.textPrimary,fontFamily:"Georgia,serif",fontSize:14}}/>
-            </div>
-            
-            <div>
-              <label style={{fontSize:12,color:C.textMuted,fontWeight:"bold"}}>Valor Venda/@</label>
-              <input type="number" step="0.01" value={editForm.valorVendaArroba} 
-                onChange={(e) => {
-                  const val = Number(e.target.value) || 0;
-                  setEditForm({...editForm, valorVendaArroba: val});
-                }}
-                style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.textPrimary,fontFamily:"Georgia,serif",fontSize:14}}/>
+
+            {/* ── Dados Gerais ── */}
+            <div style={{fontSize:11,color:C.textSecondary,fontWeight:"bold",textTransform:"uppercase",letterSpacing:0.8,borderBottom:`1px solid ${C.border}`,paddingBottom:6}}>
+              Dados Gerais
             </div>
 
-            {(() => {
-              const valores = calcularValores(editForm);
-              return (
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div>
+                <label style={{fontSize:12,color:C.textMuted,fontWeight:"bold",display:"block",marginBottom:4}}>Data</label>
+                <input type="text" value={editForm.data}
+                  onChange={(e) => setEditForm({...editForm, data: e.target.value})}
+                  placeholder="dd/mm/aaaa"
+                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.textPrimary,fontFamily:"Georgia,serif",fontSize:14,boxSizing:"border-box"}}/>
+              </div>
+              <div>
+                <label style={{fontSize:12,color:C.textMuted,fontWeight:"bold",display:"block",marginBottom:4}}>Status</label>
+                <select value={editForm.status}
+                  onChange={(e) => setEditForm({...editForm, status: e.target.value})}
+                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.textPrimary,fontFamily:"Georgia,serif",fontSize:14}}>
+                  <option value="Concluída">Concluída</option>
+                  <option value="Pendente">Pendente</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label style={{fontSize:12,color:C.textMuted,fontWeight:"bold",display:"block",marginBottom:4}}>Tipo</label>
+              <select value={editForm.sexo}
+                onChange={(e) => setEditForm({...editForm, sexo: e.target.value})}
+                style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.textPrimary,fontFamily:"Georgia,serif",fontSize:14}}>
+                <option value="Boi">🐂 Boi</option>
+                <option value="Vaca">🐄 Vaca</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{fontSize:12,color:C.textMuted,fontWeight:"bold",display:"block",marginBottom:4}}>Cliente</label>
+              <select value={editForm.cliente}
+                onChange={(e) => setEditForm({...editForm, cliente: e.target.value})}
+                style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.textPrimary,fontFamily:"Georgia,serif",fontSize:14}}>
+                {dados.clientes.map(c=>(
+                  <option key={c.id} value={c.nome} style={{background:C.card2}}>{c.nome}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={{fontSize:12,color:C.textMuted,fontWeight:"bold",display:"block",marginBottom:4}}>Frigorífico</label>
+              <select value={editForm.frigorifico}
+                onChange={(e) => setEditForm({...editForm, frigorifico: e.target.value})}
+                style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.textPrimary,fontFamily:"Georgia,serif",fontSize:14}}>
+                <option value="">— Nenhum —</option>
+                {dados.frigorificos.map(f=>(
+                  <option key={f.id} value={f.nome} style={{background:C.card2}}>{f.nome}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* ── Valores ── */}
+            <div style={{fontSize:11,color:C.textSecondary,fontWeight:"bold",textTransform:"uppercase",letterSpacing:0.8,borderBottom:`1px solid ${C.border}`,paddingBottom:6,marginTop:4}}>
+              Valores
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div>
+                <label style={{fontSize:12,color:C.textMuted,fontWeight:"bold",display:"block",marginBottom:4}}>Cabeças</label>
+                <input type="number" value={editForm.cabecas}
+                  onChange={(e) => setEditForm({...editForm, cabecas: Number(e.target.value) || 0})}
+                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.textPrimary,fontFamily:"Georgia,serif",fontSize:14,boxSizing:"border-box"}}/>
+              </div>
+              <div>
+                <label style={{fontSize:12,color:C.textMuted,fontWeight:"bold",display:"block",marginBottom:4}}>Peso/Cabeça (kg)</label>
+                <input type="number" step="0.01" value={editForm.pesoPorCabeca}
+                  onChange={(e) => setEditForm({...editForm, pesoPorCabeca: Number(e.target.value) || 0})}
+                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.textPrimary,fontFamily:"Georgia,serif",fontSize:14,boxSizing:"border-box"}}/>
+              </div>
+              <div>
+                <label style={{fontSize:12,color:C.textMuted,fontWeight:"bold",display:"block",marginBottom:4}}>Compra/@ (R$)</label>
+                <input type="number" step="0.01" value={editForm.valorCompraArroba}
+                  onChange={(e) => setEditForm({...editForm, valorCompraArroba: Number(e.target.value) || 0})}
+                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.textPrimary,fontFamily:"Georgia,serif",fontSize:14,boxSizing:"border-box"}}/>
+              </div>
+              <div>
+                <label style={{fontSize:12,color:C.textMuted,fontWeight:"bold",display:"block",marginBottom:4}}>Venda/@ (R$)</label>
+                <input type="number" step="0.01" value={editForm.valorVendaArroba}
+                  onChange={(e) => setEditForm({...editForm, valorVendaArroba: Number(e.target.value) || 0})}
+                  style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.textPrimary,fontFamily:"Georgia,serif",fontSize:14,boxSizing:"border-box"}}/>
+              </div>
+            </div>
+
+            {/* ── Despesas ── */}
+            <div style={{fontSize:11,color:C.textSecondary,fontWeight:"bold",textTransform:"uppercase",letterSpacing:0.8,borderBottom:`1px solid ${C.border}`,paddingBottom:6,marginTop:4}}>
+              Despesas
+            </div>
+
+            {editForm.despesas.map((d,i)=>(
+              <div key={i} style={{display:"flex",gap:8,alignItems:"center"}}>
+                <input type="text" value={d.descricao} placeholder="Descrição"
+                  onChange={(e)=>{
+                    const deps=[...editForm.despesas];
+                    deps[i]={...deps[i],descricao:e.target.value};
+                    setEditForm({...editForm,despesas:deps});
+                  }}
+                  style={{flex:2,padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.textPrimary,fontFamily:"Georgia,serif",fontSize:13}}/>
+                <input type="number" step="0.01" value={d.valor} placeholder="R$"
+                  onChange={(e)=>{
+                    const deps=[...editForm.despesas];
+                    deps[i]={...deps[i],valor:Number(e.target.value)||0};
+                    setEditForm({...editForm,despesas:deps});
+                  }}
+                  style={{flex:1,padding:"8px 10px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.textPrimary,fontFamily:"Georgia,serif",fontSize:13}}/>
+                <button onClick={()=>{
+                  const deps=editForm.despesas.filter((_,j)=>j!==i);
+                  setEditForm({...editForm,despesas:deps});
+                }}
+                  style={{background:"#3a0a0a",border:"none",borderRadius:8,padding:"8px 10px",color:C.loss,cursor:"pointer",fontSize:15,flexShrink:0}}>
+                  🗑
+                </button>
+              </div>
+            ))}
+
+            <button onClick={()=>setEditForm({...editForm,despesas:[...editForm.despesas,{descricao:'',valor:0}]})}
+              style={{background:C.card2,border:`1px solid ${C.border}`,borderRadius:10,padding:"10px 14px",color:C.textSecondary,cursor:"pointer",fontFamily:"Georgia,serif",fontSize:13,width:"100%",textAlign:"left"}}>
+              + Adicionar Despesa
+            </button>
+
+            {/* ── Preview Calculado ── */}
+            {(()=>{
+              const valores=calcularValores(editForm);
+              return(
                 <>
-                  <div style={{background:C.card2,borderRadius:12,padding:14,marginTop:14}}>
+                  <div style={{background:C.card2,borderRadius:12,padding:14,marginTop:4}}>
                     <InfoRow label="⚖️ Peso total" value={`${fmtNum(valores.pesoTotal)} kg`}/>
                     <InfoRow label="@ Arrobas" value={`${fmtNum(valores.arrobas)} @`}/>
                     <InfoRow label="🔴 Total Compra" value={`R$ ${fmtNum(valores.totalCompra)}`}/>
                     <InfoRow label="🟢 Total Venda" value={`R$ ${fmtNum(valores.totalVenda)}`}/>
+                    <InfoRow label="📋 Total Despesas" value={`R$ ${fmtNum(valores.totalDesp)}`}/>
                   </div>
-
                   <div style={{background:valores.lucro>=0?"#0a3a0a":"#3a0a0a",borderRadius:14,padding:20,border:`2px solid ${valores.lucro>=0?C.green:"#7a1a1a"}`,textAlign:"center"}}>
                     <div style={{fontSize:12,color:C.textMuted,marginBottom:6,letterSpacing:1}}>LUCRO LÍQUIDO</div>
                     <div style={{fontSize:28,fontWeight:"bold",color:valores.lucro>=0?C.profit:C.loss}}>{valores.lucro>=0?"+":""}R$ {fmtNum(valores.lucro)}</div>
