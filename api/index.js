@@ -583,6 +583,40 @@ app.patch('/api/operacoes/:id', autenticar, async (req, res) => {
   }
 });
 
+app.put('/api/operacoes/:id', autenticar, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { cabecas, pesoPorCabeca, pesoTotal, arrobas, valorCompraArroba, valorVendaArroba, totalCompra, totalVenda, lucro, margem, precoCompra, precoVenda, valorCompra, valorVenda } = req.body;
+    
+    const toNumber = (val) => {
+      if (val === null || val === undefined || val === '') return 0;
+      const num = parseFloat(val);
+      return isNaN(num) ? 0 : num;
+    };
+    
+    const cabecasNum = toNumber(cabecas);
+    const pesoPorCabecaNum = toNumber(pesoPorCabeca);
+    const pesoTotalNum = toNumber(pesoTotal);
+    const arrobasNum = toNumber(arrobas);
+    const valorCompraArrobaNum = toNumber(valorCompraArroba);
+    const valorVendaArrobaNum = toNumber(valorVendaArroba);
+    const totalCompraNum = toNumber(totalCompra);
+    const totalVendaNum = toNumber(totalVenda);
+    const lucroNum = toNumber(lucro);
+    const margemNum = toNumber(margem);
+    
+    await pool.query(`
+      UPDATE operacoes SET cabecas=$1, pesoPorCabeca=$2, pesoTotal=$3, arrobas=$4, valorCompra=$5, valorVenda=$6, precoCompra=$7, precoVenda=$8, totalCompra=$9, totalVenda=$10, lucro=$11, margem=$12
+      WHERE id=$13
+    `, [cabecasNum, pesoPorCabecaNum, pesoTotalNum, arrobasNum, valorCompraArrobaNum, valorVendaArrobaNum, valorCompraArrobaNum, valorVendaArrobaNum, totalCompraNum, totalVendaNum, lucroNum, margemNum, id]);
+    
+    res.json({ sucesso: true });
+  } catch (err) {
+    console.error('❌ Erro ao atualizar operação:', err);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
 app.delete('/api/operacoes/:id', autenticar, async (req, res) => {
   try {
     const { id } = req.params;

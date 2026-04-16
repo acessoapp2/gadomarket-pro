@@ -669,6 +669,9 @@ function NovaOperacao({dados,onSalvo,onVoltar,isMobile}){
 // ════════════════════════════════════════════════════════════════
 function Operacoes({dados,onRefresh,isMobile}){
   const [detalhe,setDetalhe]=useState(null);
+  const [editando,setEditando]=useState(false);
+  const [editForm,setEditForm]=useState(null);
+  const [salvando,setSalvando]=useState(false);
   const [busca,setBusca]=useState("");
   const [deleting,setDeleting]=useState(false);
 
@@ -714,6 +717,73 @@ function Operacoes({dados,onRefresh,isMobile}){
     } catch (e) {
       console.error('Erro ao exportar PDF:', e);
       alert('Erro ao gerar PDF: ' + e.message);
+    }
+  };
+
+  const abrirEdicao = (op) => {
+    setEditForm({
+      id: op.id,
+      cabecas: op.cabecas,
+      pesoPorCabeca: op.pesoPorCabeca,
+      valorCompraArroba: op.valorCompraArroba,
+      valorVendaArroba: op.valorVendaArroba,
+      despesas: op.despesas || []
+    });
+    setEditando(true);
+  };
+
+  const calcularValores = (form) => {
+    const cabecas = Number(form.cabecas) || 0;
+    const pesoCab = Number(form.pesoPorCabeca) || 0;
+    const pesoTotal = cabecas * pesoCab;
+    const arrobas = parseFloat((pesoTotal / 30).toFixed(2));
+    const compraArr = Number(form.valorCompraArroba) || 0;
+    const vendaArr = Number(form.valorVendaArroba) || 0;
+    const totalCompra = parseFloat((arrobas * compraArr).toFixed(2));
+    const totalVenda = parseFloat((arrobas * vendaArr).toFixed(2));
+    const totalDesp = (form.despesas || []).reduce((s, d) => s + (Number(d.valor) || 0), 0);
+    const lucro = parseFloat((totalVenda - totalCompra - totalDesp).toFixed(2));
+    const margem = totalVenda > 0 ? ((lucro / totalVenda) * 100).toFixed(1) : 0;
+    
+    return { pesoTotal, arrobas, totalCompra, totalVenda, lucro, margem };
+  };
+
+  const salvarEdicao = async () => {
+    if (!editForm) return;
+    setSalvando(true);
+    try {
+      const valores = calcularValores(editForm);
+      const payload = {
+        cabecas: Number(editForm.cabecas),
+        pesoPorCabeca: Number(editForm.pesoPorCabeca),
+        pesoTotal: valores.pesoTotal,
+        arrobas: valores.arrobas,
+        valorCompraArroba: Number(editForm.valorCompraArroba),
+        valorVendaArroba: Number(editForm.valorVendaArroba),
+        totalCompra: valores.totalCompra,
+        totalVenda: valores.totalVenda,
+        lucro: valores.lucro,
+        margem: valores.margem,
+        precoCompra: Number(editForm.valorCompraArroba),
+        precoVenda: Number(editForm.valorVendaArroba),
+        valorCompra: Number(editForm.valorCompraArroba),
+        valorVenda: Number(editForm.valorVendaArroba)
+      };
+
+      await apiFetch(`/operacoes/${editForm.id}`, { method: 'PUT', body: payload });
+      
+      // Atualizar detalhe local
+      const detalhAtualizado = {
+        ...detalhe,
+        ...payload
+      };
+      setDetalhe(detalhAtualizado);
+      setEditando(false);
+      await onRefresh();
+    } catch (e) {
+      alert('Erro ao salvar: ' + e.message);
+    } finally {
+      setSalvando(false);
     }
   };
 
@@ -821,7 +891,84 @@ function Operacoes({dados,onRefresh,isMobile}){
       ))}
 
       {/* MODAL DETALHE */}
-      {detalhe&&(
+      {detalhe && editForm && editando ? (
+        <Modal title="Editar Operação" onClose={() => setEditando(false)}>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div>
+              <label style={{fontSize:12,color:C.textMuted,fontWeight:"bold"}}>Cabeças</label>
+              <input type="number" value={editForm.cabecas} 
+                onChange={(e) => {
+                  const val = Number(e.target.value) || 0;
+                  setEditForm({...editForm, cabecas: val});
+                }}
+                style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.textPrimary,fontFamily:"Georgia,serif",fontSize:14}}/>
+            </div>
+            
+            <div>
+              <label style={{fontSize:12,color:C.textMuted,fontWeight:"bold"}}>Peso por Cabeça (kg)</label>
+              <input type="number" step="0.01" value={editForm.pesoPorCabeca} 
+                onChange={(e) => {
+                  const val = Number(e.target.value) || 0;
+                  setEditForm({...editForm, pesoPorCabeca: val});
+                }}
+                style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.textPrimary,fontFamily:"Georgia,serif",fontSize:14}}/>
+            </div>
+            
+            <div>
+              <label style={{fontSize:12,color:C.textMuted,fontWeight:"bold"}}>Valor Compra/@</label>
+              <input type="number" step="0.01" value={editForm.valorCompraArroba} 
+                onChange={(e) => {
+                  const val = Number(e.target.value) || 0;
+                  setEditForm({...editForm, valorCompraArroba: val});
+                }}
+                style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.textPrimary,fontFamily:"Georgia,serif",fontSize:14}}/>
+            </div>
+            
+            <div>
+              <label style={{fontSize:12,color:C.textMuted,fontWeight:"bold"}}>Valor Venda/@</label>
+              <input type="number" step="0.01" value={editForm.valorVendaArroba} 
+                onChange={(e) => {
+                  const val = Number(e.target.value) || 0;
+                  setEditForm({...editForm, valorVendaArroba: val});
+                }}
+                style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:C.card2,color:C.textPrimary,fontFamily:"Georgia,serif",fontSize:14}}/>
+            </div>
+
+            {(() => {
+              const valores = calcularValores(editForm);
+              return (
+                <>
+                  <div style={{background:C.card2,borderRadius:12,padding:14,marginTop:14}}>
+                    <InfoRow label="⚖️ Peso total" value={`${fmtNum(valores.pesoTotal)} kg`}/>
+                    <InfoRow label="@ Arrobas" value={`${fmtNum(valores.arrobas)} @`}/>
+                    <InfoRow label="🔴 Total Compra" value={`R$ ${fmtNum(valores.totalCompra)}`}/>
+                    <InfoRow label="🟢 Total Venda" value={`R$ ${fmtNum(valores.totalVenda)}`}/>
+                  </div>
+
+                  <div style={{background:valores.lucro>=0?"#0a3a0a":"#3a0a0a",borderRadius:14,padding:20,border:`2px solid ${valores.lucro>=0?C.green:"#7a1a1a"}`,textAlign:"center"}}>
+                    <div style={{fontSize:12,color:C.textMuted,marginBottom:6,letterSpacing:1}}>LUCRO LÍQUIDO</div>
+                    <div style={{fontSize:28,fontWeight:"bold",color:valores.lucro>=0?C.profit:C.loss}}>{valores.lucro>=0?"+":""}R$ {fmtNum(valores.lucro)}</div>
+                    <div style={{fontSize:12,color:C.textMuted,marginTop:6}}>
+                      Margem: {valores.totalVenda>0?(valores.lucro/valores.totalVenda*100).toFixed(1):0}%
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+
+          <div style={{display:"flex",gap:10,marginTop:20}}>
+            <button onClick={salvarEdicao} disabled={salvando}
+              style={{flex:1,background:C.accent,border:"none",borderRadius:12,padding:14,color:C.bg,fontSize:14,cursor:salvando?"not-allowed":"pointer",fontFamily:"Georgia,serif",fontWeight:"bold",opacity:salvando?0.6:1}}>
+              {salvando?"⏳ Salvando...":"💾 Salvar Alterações"}
+            </button>
+            <button onClick={() => setEditando(false)} disabled={salvando}
+              style={{flex:1,background:C.card2,border:`1px solid ${C.border}`,borderRadius:12,padding:14,color:C.textPrimary,fontSize:14,cursor:"pointer",fontFamily:"Georgia,serif",fontWeight:"bold"}}>
+              ✕ Cancelar
+            </button>
+          </div>
+        </Modal>
+      ) : detalhe ? (
         <Modal title="Detalhes da Operação" onClose={()=>setDetalhe(null)}>
           <div id="modal-detalhes-conteudo">
             <div style={{textAlign:"center",marginBottom:20}}>
@@ -867,17 +1014,21 @@ function Operacoes({dados,onRefresh,isMobile}){
           </div>
 
           <div style={{display:"flex",gap:10,marginTop:16}}>
-            <button onClick={()=>exportarPDF(detalhe)}
+            <button onClick={() => abrirEdicao(detalhe)}
               style={{flex:1,background:C.accent,border:"none",borderRadius:12,padding:14,color:C.bg,fontSize:14,cursor:"pointer",fontFamily:"Georgia,serif",fontWeight:"bold"}}>
-              📄 Exportar PDF
+              ✏️ Editar Tudo
+            </button>
+            <button onClick={()=>exportarPDF(detalhe)}
+              style={{flex:1,background:"#1a5a1a",border:"none",borderRadius:12,padding:14,color:C.profit,fontSize:14,cursor:"pointer",fontFamily:"Georgia,serif",fontWeight:"bold"}}>
+              📄 PDF
             </button>
             <button onClick={()=>excluir(detalhe.id)} disabled={deleting}
               style={{flex:1,background:"#3a0a0a",border:"none",borderRadius:12,padding:14,color:C.loss,fontSize:14,cursor:deleting?"not-allowed":"pointer",fontFamily:"Georgia,serif",opacity:deleting?.6:1}}>
-              {deleting?"⏳ Excluindo...":"🗑 Excluir"}
+              {deleting?"⏳":"🗑"}
             </button>
           </div>
         </Modal>
-      )}
+      ) : null}
     </div>
   );
 }
