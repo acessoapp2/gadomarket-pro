@@ -297,6 +297,7 @@ function Sidebar({aba,setAba,novaOp,setNovaOp,user,onLogout}){
     {id:"operacoes",icon:"📋",label:"Operações"},
     {id:"cadastros",icon:"👥",label:"Cadastros"},
     {id:"relatorio",icon:"📊",label:"Relatório"},
+    {id:"acougue",  icon:"🥩",label:"Açougue"},
   ];
   return(
     <div style={{width:260,minHeight:"100vh",background:C.sidebar,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",overflow:"auto",flexShrink:0}}>
@@ -1490,6 +1491,275 @@ function Relatorio({dados,isMobile}){
 }
 
 // ════════════════════════════════════════════════════════════════
+// PEDIDOS DE AÇOUGUE
+// ════════════════════════════════════════════════════════════════
+function PedidosAcougue({isMobile}){
+  const STORAGE_KEY = "gm_pedidos_acougue";
+
+  const calcStatus = (p) => {
+    if(p.status === "Entregue") return "Entregue";
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const venc = new Date(p.data + "T00:00:00");
+    if(hoje > venc) return "Atrasado";
+    return p.status;
+  };
+
+  const getDiff = (data) => {
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const venc = new Date(data + "T00:00:00");
+    return Math.floor((venc - hoje) / (1000*60*60*24));
+  };
+
+  const getRowStyle = (p) => {
+    if(p.status === "Atrasado") return {background:"#cf6f6f18", borderLeft:"3px solid #cf6f6f"};
+    if(p.status === "Entregue") return {};
+    const diff = getDiff(p.data);
+    if(diff === 0) return {background:"#cf8f2018", borderLeft:"3px solid #cf8f20"};
+    if(diff === 1) return {background:"#cfcf3f18", borderLeft:"3px solid #cfcf3f"};
+    return {};
+  };
+
+  const loadStorage = () => { try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||"[]"); }catch(e){ return []; } };
+
+  const [pedidos, setPedidos] = useState(() => loadStorage().map(p=>({...p,status:calcStatus(p)})));
+  const [showForm, setShowForm] = useState(false);
+  const [filtro, setFiltro] = useState("todos");
+  const [form, setForm] = useState({cliente:"",produto:"",quantidade:"",unidade:"kg",valor:"",data:"",observacoes:""});
+  const [formError, setFormError] = useState("");
+
+  useEffect(()=>{
+    const raw = loadStorage();
+    const updated = raw.map(p=>({...p,status:calcStatus(p)}));
+    if(updated.some((p,i)=>p.status!==raw[i]?.status)){
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(updated));
+      setPedidos(updated);
+    }
+  // eslint-disable-next-line
+  },[]);
+
+  const save = (lista) => { localStorage.setItem(STORAGE_KEY,JSON.stringify(lista)); setPedidos(lista); };
+  const setF  = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const handleAdd = () => {
+    if(!form.cliente.trim()||!form.produto.trim()||!form.data){
+      setFormError("Preencha cliente, produto e data de vencimento."); return;
+    }
+    const novo = {id:Date.now(),...form,status:"Pendente",criadoEm:new Date().toISOString()};
+    novo.status = calcStatus(novo);
+    save([...pedidos,novo]);
+    setForm({cliente:"",produto:"",quantidade:"",unidade:"kg",valor:"",data:"",observacoes:""});
+    setFormError(""); setShowForm(false);
+  };
+
+  const handleDelete = (id) => { if(!window.confirm("Excluir este pedido?")) return; save(pedidos.filter(p=>p.id!==id)); };
+
+  const handleStatus = (id, novoStatus) => {
+    save(pedidos.map(p => {
+      if(p.id!==id) return p;
+      const u = {...p,status:novoStatus};
+      return {...u,status:calcStatus(u)};
+    }));
+  };
+
+  const fmtDate = (d) => { if(!d) return "—"; const [y,m,day]=d.split("-"); return `${day}/${m}/${y}`; };
+
+  const CORES = {
+    "Pendente":  {bg:"#cfcf3f22",tx:"#cfcf3f",bd:"#cfcf3f44"},
+    "Em preparo":{bg:"#6f9fcf22",tx:"#6f9fcf",bd:"#6f9fcf44"},
+    "Entregue":  {bg:"#6fcf6f22",tx:"#6fcf6f",bd:"#6fcf6f44"},
+    "Atrasado":  {bg:"#cf6f6f22",tx:"#cf6f6f",bd:"#cf6f6f44"},
+  };
+  const StatusBadge = ({status}) => {
+    const s = CORES[status]||CORES["Pendente"];
+    return <span style={{background:s.bg,color:s.tx,border:`1px solid ${s.bd}`,borderRadius:6,padding:"3px 10px",fontSize:11,fontWeight:"bold",whiteSpace:"nowrap"}}>{status}</span>;
+  };
+
+  const pedFiltrados = filtro==="todos" ? pedidos : pedidos.filter(p=>p.status===filtro);
+  const counts = pedidos.reduce((acc,p)=>({...acc,[p.status]:(acc[p.status]||0)+1}),{});
+  const FILTROS = [
+    {id:"todos",    label:"Todos",      count:pedidos.length},
+    {id:"Pendente", label:"Pendente",   count:counts["Pendente"]||0},
+    {id:"Em preparo",label:"Em preparo",count:counts["Em preparo"]||0},
+    {id:"Entregue", label:"Entregue",   count:counts["Entregue"]||0},
+    {id:"Atrasado", label:"Atrasado",   count:counts["Atrasado"]||0},
+  ];
+
+  const selectSt = {background:C.card2,border:`1px solid ${C.border2}`,borderRadius:8,padding:"6px 10px",color:C.textPrimary,fontSize:12,fontFamily:"Georgia,serif",cursor:"pointer",outline:"none"};
+
+  return(
+    <div style={{paddingTop:20,paddingBottom:40}}>
+
+      {/* ── Cabeçalho ── */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,gap:12,flexWrap:"wrap"}}>
+        <div>
+          <div style={{fontSize:isMobile?16:20,fontWeight:"bold",color:C.accent,marginBottom:4}}>🥩 Pedidos de Açougue</div>
+          <div style={{fontSize:12,color:C.textMuted}}>{pedidos.length} pedido{pedidos.length!==1?"s":""} cadastrado{pedidos.length!==1?"s":""}</div>
+        </div>
+        <Btn onClick={()=>{setShowForm(true);setFormError("");}} style={{width:"auto",padding:"12px 20px",fontSize:13}}>
+          + Novo Pedido
+        </Btn>
+      </div>
+
+      {/* ── Stats ── */}
+      <div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap"}}>
+        <StatCard label="Total"      value={pedidos.length}          cor={C.accent}/>
+        <StatCard label="Pendentes"  value={counts["Pendente"]||0}   cor={C.warn}/>
+        <StatCard label="Em Preparo" value={counts["Em preparo"]||0} cor="#6f9fcf"/>
+        <StatCard label="Atrasados"  value={counts["Atrasado"]||0}   cor={C.loss}/>
+      </div>
+
+      {/* ── Filtros ── */}
+      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+        {FILTROS.map(f=>(
+          <button key={f.id} onClick={()=>setFiltro(f.id)} style={{
+            background:filtro===f.id?`${C.green}33`:"transparent",
+            border:`1px solid ${filtro===f.id?C.green:C.border}`,
+            borderRadius:20,padding:"6px 14px",
+            color:filtro===f.id?C.accent:C.textMuted,
+            cursor:"pointer",fontSize:12,fontFamily:"Georgia,serif",
+            display:"flex",alignItems:"center",gap:6,transition:"all .15s",
+          }}>
+            {f.label}
+            <span style={{background:filtro===f.id?`${C.green}66`:C.border,borderRadius:10,padding:"1px 7px",fontSize:10,color:filtro===f.id?C.accent:C.textMuted}}>
+              {f.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* ── Legenda visual ── */}
+      <div style={{display:"flex",gap:16,marginBottom:18,flexWrap:"wrap"}}>
+        {[
+          {bg:"#cfcf3f18",bd:"#cfcf3f",label:"Vence em 1 dia"},
+          {bg:"#cf8f2018",bd:"#cf8f20",label:"Vence hoje"},
+          {bg:"#cf6f6f18",bd:"#cf6f6f",label:"Atrasado"},
+        ].map((l,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:6,fontSize:11,color:C.textMuted}}>
+            <div style={{width:12,height:12,background:l.bg,border:`2px solid ${l.bd}`,borderRadius:3,flexShrink:0}}/>
+            {l.label}
+          </div>
+        ))}
+      </div>
+
+      {/* ── Lista vazia ── */}
+      {pedFiltrados.length===0&&(
+        <div style={{textAlign:"center",padding:"60px 20px",color:C.textMuted}}>
+          <div style={{fontSize:40,marginBottom:12}}>🥩</div>
+          <div>Nenhum pedido encontrado</div>
+        </div>
+      )}
+
+      {/* ── MOBILE: cards ── */}
+      {pedFiltrados.length>0&&isMobile&&(
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          {pedFiltrados.map(p=>{
+            const rs = getRowStyle(p);
+            const isAtrasado = p.status==="Atrasado";
+            return(
+              <div key={p.id} style={{background:C.card,borderRadius:14,padding:"16px",border:`1px solid ${C.border}`,...rs}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+                  <div>
+                    <div style={{fontWeight:"bold",color:C.textPrimary,fontSize:15}}>{p.cliente}</div>
+                    <div style={{fontSize:13,color:C.textSecondary,marginTop:2}}>{p.produto}</div>
+                  </div>
+                  <StatusBadge status={p.status}/>
+                </div>
+                <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom:p.observacoes?8:12}}>
+                  {p.quantidade&&<div style={{fontSize:11,color:C.textMuted}}>📦 {p.quantidade} {p.unidade}</div>}
+                  {p.valor&&<div style={{fontSize:11,color:C.textMuted}}>💰 R$ {p.valor}</div>}
+                  <div style={{fontSize:11,color:C.textMuted}}>📅 {fmtDate(p.data)}</div>
+                </div>
+                {p.observacoes&&<div style={{fontSize:11,color:C.textMuted,marginBottom:12,fontStyle:"italic"}}>"{p.observacoes}"</div>}
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                  {isAtrasado
+                    ?<div style={{flex:1,fontSize:11,color:"#cf6f6f",display:"flex",alignItems:"center",gap:4}}>⚠️ Status alterado automaticamente</div>
+                    :<select value={p.status} onChange={e=>handleStatus(p.id,e.target.value)} style={{...selectSt,flex:1,padding:"8px 10px"}}>
+                        {["Pendente","Em preparo","Entregue"].map(s=><option key={s} value={s} style={{background:C.card2}}>{s}</option>)}
+                      </select>
+                  }
+                  <button onClick={()=>handleDelete(p.id)} style={{background:"#3a0a0a",border:`1px solid ${C.loss}44`,borderRadius:8,padding:"8px 12px",color:C.loss,cursor:"pointer",fontSize:14}}>🗑</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── DESKTOP: tabela ── */}
+      {pedFiltrados.length>0&&!isMobile&&(
+        <div style={{borderRadius:14,border:`1px solid ${C.border}`,overflow:"hidden"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontFamily:"Georgia,serif"}}>
+            <thead>
+              <tr style={{background:C.card2}}>
+                {["Cliente","Produto","Qtd.","Valor","Vencimento","Status","Ação"].map(h=>(
+                  <th key={h} style={{padding:"12px 16px",textAlign:"left",fontSize:11,color:C.textMuted,fontWeight:"bold",letterSpacing:0.8,textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {pedFiltrados.map((p,i)=>{
+                const rs = getRowStyle(p);
+                const isAtrasado = p.status==="Atrasado";
+                return(
+                  <tr key={p.id} style={{borderTop:`1px solid ${C.border}`,background:rs.background||(i%2===0?C.card:C.card2),...rs,transition:"background .15s"}}>
+                    <td style={{padding:"12px 16px",color:C.textPrimary,fontWeight:"bold"}}>{p.cliente}</td>
+                    <td style={{padding:"12px 16px",color:C.textSecondary}}>{p.produto}</td>
+                    <td style={{padding:"12px 16px",color:C.textMuted,whiteSpace:"nowrap"}}>{p.quantidade?`${p.quantidade} ${p.unidade}`:"—"}</td>
+                    <td style={{padding:"12px 16px",color:C.textMuted,whiteSpace:"nowrap"}}>{p.valor?`R$ ${fmt(p.valor)}`:"—"}</td>
+                    <td style={{padding:"12px 16px",color:C.textMuted,whiteSpace:"nowrap"}}>{fmtDate(p.data)}</td>
+                    <td style={{padding:"12px 16px",whiteSpace:"nowrap"}}>
+                      {isAtrasado
+                        ?<StatusBadge status="Atrasado"/>
+                        :<select value={p.status} onChange={e=>handleStatus(p.id,e.target.value)} style={selectSt}>
+                            {["Pendente","Em preparo","Entregue"].map(s=><option key={s} value={s} style={{background:C.card2}}>{s}</option>)}
+                          </select>
+                      }
+                    </td>
+                    <td style={{padding:"12px 16px"}}>
+                      <button onClick={()=>handleDelete(p.id)} style={{background:"#3a0a0a",border:`1px solid ${C.loss}44`,borderRadius:8,padding:"6px 14px",color:C.loss,cursor:"pointer",fontSize:12,fontFamily:"Georgia,serif"}}>
+                        🗑 Excluir
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ── Modal: novo pedido ── */}
+      {showForm&&(
+        <Modal title="🥩 Novo Pedido de Açougue" onClose={()=>{setShowForm(false);setFormError("");}}>
+          <Input label="Cliente" value={form.cliente} onChange={v=>setF("cliente",v)} placeholder="Nome do cliente" req/>
+          <Input label="Produto / Corte" value={form.produto} onChange={v=>setF("produto",v)} placeholder="Ex: Picanha, Fraldinha, Alcatra..." req/>
+          <div style={{display:"flex",gap:10,alignItems:"flex-end"}}>
+            <div style={{flex:2}}>
+              <Input label="Quantidade" value={form.quantidade} onChange={v=>setF("quantidade",v)} placeholder="0" type="number"/>
+            </div>
+            <div style={{flex:1,marginBottom:14}}>
+              <Label>Unidade</Label>
+              <select value={form.unidade} onChange={e=>setF("unidade",e.target.value)} style={{...inp}}>
+                {["kg","g","un","peças","@"].map(u=><option key={u} value={u} style={{background:C.card2}}>{u}</option>)}
+              </select>
+            </div>
+          </div>
+          <Input label="Valor (R$)" value={form.valor} onChange={v=>setF("valor",v)} placeholder="0,00" prefix="R$"/>
+          <Input label="Data de Vencimento" value={form.data} onChange={v=>setF("data",v)} type="date" req/>
+          <Input label="Observações" value={form.observacoes} onChange={v=>setF("observacoes",v)} placeholder="Detalhes adicionais..."/>
+          {formError&&(
+            <div style={{background:"#3a0a0a",border:`1px solid ${C.loss}55`,borderRadius:10,padding:"10px 14px",marginBottom:14,color:C.loss,fontSize:13}}>
+              ⚠️ {formError}
+            </div>
+          )}
+          <Btn onClick={handleAdd}>✅ Salvar Pedido</Btn>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
 // MAIN APP (após login)
 // ════════════════════════════════════════════════════════════════
 function MainApp({user,onLogout}){
@@ -1537,6 +1807,7 @@ function MainApp({user,onLogout}){
     {id:"operacoes",icon:"📋",label:"Operações"},
     {id:"cadastros",icon:"👥",label:"Cadastros"},
     {id:"relatorio",icon:"📊",label:"Relatório"},
+    {id:"acougue",  icon:"🥩",label:"Açougue"},
   ];
 
   if(loading) return(
@@ -1604,7 +1875,7 @@ function MainApp({user,onLogout}){
         {!isMobile&&(
           <div style={{background:"linear-gradient(135deg,#0e1c0b,#152610)",padding:"18px 28px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100}}>
             <div style={{fontSize:15,color:C.textSecondary,fontWeight:"bold",textTransform:"uppercase",letterSpacing:1}}>
-              {novaOp?"➕ Nova Operação":aba==="operacoes"?"📋 Operações":aba==="cadastros"?"👥 Cadastros":"📊 Relatório"}
+              {novaOp?"➕ Nova Operação":aba==="operacoes"?"📋 Operações":aba==="cadastros"?"👥 Cadastros":aba==="relatorio"?"📊 Relatório":"🥩 Pedidos de Açougue"}
             </div>
             <div style={{display:"flex",alignItems:"center",gap:12}}>
               <div style={{fontSize:12,color:C.textMuted}}>👤 {user?.username}</div>
@@ -1626,6 +1897,7 @@ function MainApp({user,onLogout}){
                 {aba==="operacoes"&&<Operacoes dados={dados} onRefresh={fetchAll} isMobile={isMobile}/>}
                 {aba==="cadastros"&&<Cadastros dados={dados} onRefresh={fetchOne} isMobile={isMobile}/>}
                 {aba==="relatorio"&&<Relatorio dados={dados} isMobile={isMobile}/>}
+                {aba==="acougue"&&<PedidosAcougue isMobile={isMobile}/>}
               </>
           }
         </div>
