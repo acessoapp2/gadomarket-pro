@@ -138,6 +138,19 @@ const initializeDB = async (tentativa = 1) => {
       await client.query(`ALTER TABLE despesas ADD CONSTRAINT despesas_operacao_id_fkey FOREIGN KEY (operacao_id) REFERENCES operacoes(id) ON DELETE CASCADE`);
     } catch (e) { /* ignore */ }
 
+    await client.query(`CREATE TABLE IF NOT EXISTS pedidos_acougue (
+      id SERIAL PRIMARY KEY,
+      cliente TEXT NOT NULL,
+      produto TEXT NOT NULL,
+      quantidade TEXT DEFAULT '',
+      unidade TEXT DEFAULT 'kg',
+      valor TEXT DEFAULT '',
+      data TEXT NOT NULL,
+      observacoes TEXT DEFAULT '',
+      status TEXT DEFAULT 'Pendente',
+      criadoEm TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
     // Seed usuário admin
     const u = await client.query('SELECT id FROM usuarios WHERE username=$1', ['admin']);
     if (u.rows.length === 0) {
@@ -502,6 +515,55 @@ app.post('/api/despesas', autenticar, async (req, res) => {
 app.delete('/api/despesas/:id', autenticar, async (req, res) => {
   try {
     await pool.query('DELETE FROM despesas WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ erro: err.message }); }
+});
+
+// ── PEDIDOS DE AÇOUGUE ────────────────────────────────────────────
+app.get('/api/pedidos-acougue', autenticar, async (req, res) => {
+  try {
+    const r = await pool.query('SELECT * FROM pedidos_acougue ORDER BY criadoem DESC');
+    res.json(r.rows.map(p => ({
+      id: p.id,
+      cliente: p.cliente,
+      produto: p.produto,
+      quantidade: p.quantidade,
+      unidade: p.unidade,
+      valor: p.valor,
+      data: p.data,
+      observacoes: p.observacoes,
+      status: p.status,
+      criadoEm: p.criadoem,
+    })));
+  } catch (err) { res.status(500).json({ erro: err.message }); }
+});
+
+app.post('/api/pedidos-acougue', autenticar, async (req, res) => {
+  try {
+    const { cliente, produto, quantidade = '', unidade = 'kg', valor = '', data, observacoes = '', status = 'Pendente' } = req.body;
+    if (!cliente || !produto || !data) return res.status(400).json({ erro: 'cliente, produto e data são obrigatórios' });
+    const r = await pool.query(
+      `INSERT INTO pedidos_acougue (cliente, produto, quantidade, unidade, valor, data, observacoes, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+      [cliente, produto, quantidade, unidade, valor, data, observacoes, status]
+    );
+    res.json({ id: r.rows[0].id, sucesso: true });
+  } catch (err) { res.status(500).json({ erro: err.message }); }
+});
+
+app.put('/api/pedidos-acougue/:id', autenticar, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ erro: 'status é obrigatório' });
+    await pool.query('UPDATE pedidos_acougue SET status=$1 WHERE id=$2', [status, id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ erro: err.message }); }
+});
+
+app.delete('/api/pedidos-acougue/:id', autenticar, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM pedidos_acougue WHERE id=$1', [req.params.id]);
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ erro: err.message }); }
 });

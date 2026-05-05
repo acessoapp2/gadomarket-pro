@@ -1494,8 +1494,6 @@ function Relatorio({dados,isMobile}){
 // PEDIDOS DE AÇOUGUE
 // ════════════════════════════════════════════════════════════════
 function PedidosAcougue({isMobile}){
-  const STORAGE_KEY = "gm_pedidos_acougue";
-
   const calcStatus = (p) => {
     if(p.status === "Entregue") return "Entregue";
     const hoje = new Date(); hoje.setHours(0,0,0,0);
@@ -1519,46 +1517,65 @@ function PedidosAcougue({isMobile}){
     return {};
   };
 
-  const loadStorage = () => { try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||"[]"); }catch(e){ return []; } };
-
-  const [pedidos, setPedidos] = useState(() => loadStorage().map(p=>({...p,status:calcStatus(p)})));
+  const [pedidos, setPedidos] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [filtro, setFiltro] = useState("todos");
   const [form, setForm] = useState({cliente:"",produto:"",quantidade:"",unidade:"kg",valor:"",data:"",observacoes:""});
   const [formError, setFormError] = useState("");
 
-  useEffect(()=>{
-    const raw = loadStorage();
-    const updated = raw.map(p=>({...p,status:calcStatus(p)}));
-    if(updated.some((p,i)=>p.status!==raw[i]?.status)){
-      localStorage.setItem(STORAGE_KEY,JSON.stringify(updated));
-      setPedidos(updated);
+  const fetchPedidos = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await apiFetch("/pedidos-acougue");
+      setPedidos((data || []).map(p => ({...p, status: calcStatus(p)})));
+    } catch(e) {
+      console.error("Erro ao carregar pedidos de açougue:", e);
+    } finally {
+      setLoading(false);
     }
   // eslint-disable-next-line
-  },[]);
+  }, []);
 
-  const save = (lista) => { localStorage.setItem(STORAGE_KEY,JSON.stringify(lista)); setPedidos(lista); };
-  const setF  = (k,v) => setForm(f=>({...f,[k]:v}));
+  useEffect(() => { fetchPedidos(); }, [fetchPedidos]);
 
-  const handleAdd = () => {
+  const setF = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const handleAdd = async () => {
     if(!form.cliente.trim()||!form.produto.trim()||!form.data){
       setFormError("Preencha cliente, produto e data de vencimento."); return;
     }
-    const novo = {id:Date.now(),...form,status:"Pendente",criadoEm:new Date().toISOString()};
-    novo.status = calcStatus(novo);
-    save([...pedidos,novo]);
-    setForm({cliente:"",produto:"",quantidade:"",unidade:"kg",valor:"",data:"",observacoes:""});
-    setFormError(""); setShowForm(false);
+    try {
+      await apiFetch("/pedidos-acougue", { method:"POST", body: form });
+      setForm({cliente:"",produto:"",quantidade:"",unidade:"kg",valor:"",data:"",observacoes:""});
+      setFormError(""); setShowForm(false);
+      await fetchPedidos();
+    } catch(e) {
+      setFormError("Erro ao salvar pedido. Tente novamente.");
+    }
   };
 
-  const handleDelete = (id) => { if(!window.confirm("Excluir este pedido?")) return; save(pedidos.filter(p=>p.id!==id)); };
+  const handleDelete = async (id) => {
+    if(!window.confirm("Excluir este pedido?")) return;
+    try {
+      await apiFetch(`/pedidos-acougue/${id}`, { method:"DELETE" });
+      setPedidos(prev => prev.filter(p => p.id !== id));
+    } catch(e) {
+      console.error("Erro ao excluir pedido:", e);
+    }
+  };
 
-  const handleStatus = (id, novoStatus) => {
-    save(pedidos.map(p => {
-      if(p.id!==id) return p;
-      const u = {...p,status:novoStatus};
-      return {...u,status:calcStatus(u)};
-    }));
+  const handleStatus = async (id, novoStatus) => {
+    try {
+      await apiFetch(`/pedidos-acougue/${id}`, { method:"PUT", body: { status: novoStatus } });
+      setPedidos(prev => prev.map(p => {
+        if(p.id !== id) return p;
+        const u = {...p, status: novoStatus};
+        return {...u, status: calcStatus(u)};
+      }));
+    } catch(e) {
+      console.error("Erro ao atualizar status:", e);
+    }
   };
 
   const fmtDate = (d) => { if(!d) return "—"; const [y,m,day]=d.split("-"); return `${day}/${m}/${y}`; };
@@ -1585,6 +1602,13 @@ function PedidosAcougue({isMobile}){
   ];
 
   const selectSt = {background:C.card2,border:`1px solid ${C.border2}`,borderRadius:8,padding:"6px 10px",color:C.textPrimary,fontSize:12,fontFamily:"Georgia,serif",cursor:"pointer",outline:"none"};
+
+  if(loading) return(
+    <div style={{textAlign:"center",padding:"60px 20px",color:C.textMuted}}>
+      <div style={{fontSize:40,marginBottom:12}}>🥩</div>
+      <div>Carregando pedidos...</div>
+    </div>
+  );
 
   return(
     <div style={{paddingTop:20,paddingBottom:40}}>
